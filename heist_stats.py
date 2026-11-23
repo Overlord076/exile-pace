@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.9.0"
+VERSION = "1.10.0"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -228,11 +228,13 @@ def open_log_fast(path):
     f = open(path, encoding="utf-8", errors="ignore")
     if start_date:
         try:
-            size = os.path.getsize(path)
-            # Если файл больше 15 МБ и задана дата, пропускаем старые архивы
-            if size > 4 * 1024 * 1024:
-                f.seek(size - 4 * 1024 * 1024)
-                f.readline()
+            days_ago = max(0, (date.today() - start_date).days)
+            if days_ago <= 30:
+                max_bytes = 4 * 1024 * 1024 if days_ago <= 1 else min(120 * 1024 * 1024, (days_ago + 1) * 4 * 1024 * 1024)
+                size = os.path.getsize(path)
+                if size > max_bytes:
+                    f.seek(size - max_bytes)
+                    f.readline()
         except Exception:
             pass
     return f
