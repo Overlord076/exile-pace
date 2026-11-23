@@ -9,9 +9,85 @@ from datetime import datetime, date
 from collections import defaultdict
 from operator import itemgetter
 
+if os.name == "nt" and getattr(sys, "frozen", False):
+    try:
+        old_f = Path(sys.executable).resolve().with_suffix(".old")
+        if old_f.exists(): old_f.unlink()
+    except Exception:
+        pass
+
 APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 DATA_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = DATA_DIR / "config.json"
+
+import urllib.request
+
+GITHUB_REPO = "MuonSuzuki/poe-heist-tracker"
+
+def parse_ver(v):
+    try:
+        return tuple(int(x) for x in v.lstrip("vV").split("."))
+    except Exception:
+        return (0, 0, 0)
+
+def check_latest_release():
+    url = f"https://github.com{GITHUB_REPO}/releases/latest"
+    req = urllib.request.Request(url, headers={"User-Agent": "PoE-Tracker-Updater"})
+    with urllib.request.urlopen(req, timeout=6) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    tag = data.get("tag_name", "").lstrip("vV")
+    assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
+    return tag, assets
+
+def perform_self_update():
+    print(f"Текущая версия: v{VERSION}. Проверяем обновления на GitHub...")
+    try:
+        latest, assets = check_latest_release()
+    except Exception as e:
+        print(f"Не удалось проверить обновления: {e}")
+        return False
+
+    if parse_ver(latest) <= parse_ver(VERSION):
+        print(f"У вас установлена актуальная версия (v{VERSION}).")
+        return False
+
+    print(f"Найдена новая версия: v{latest}! Начинаем загрузку...")
+    is_frozen = getattr(sys, "frozen", False)
+    try:
+        if is_frozen:
+            asset_name = "PoE-Tracker-Windows.exe" if os.name == "nt" else "poe-tracker-linux"
+            dl_url = assets.get(asset_name)
+            if not dl_url:
+                print(f"Файл {asset_name} не найден в релизе v{latest}.")
+                return False
+            cur_exe = Path(sys.executable).resolve()
+            tmp_exe = cur_exe.with_suffix(".new")
+            urllib.request.urlretrieve(dl_url, tmp_exe)
+            if os.name == "nt":
+                old_exe = cur_exe.with_suffix(".old")
+                if old_exe.exists():
+                    old_exe.unlink()
+                cur_exe.rename(old_exe)
+                tmp_exe.rename(cur_exe)
+            else:
+                os.chmod(tmp_exe, 0o755)
+                os.replace(tmp_exe, cur_exe)
+            print(f"Бинарник успешно обновлен до v{latest}! Перезапустите программу.")
+        else:
+            raw_url = f"https://githubusercontent.com{GITHUB_REPO}/main/heist_stats.py"
+            cur_py = Path(__file__).resolve()
+            tmp_py = cur_py.with_suffix(".py.new")
+            urllib.request.urlretrieve(raw_url, tmp_py)
+            os.replace(tmp_py, cur_py)
+            print(f"Скрипт успешно обновлен до v{latest}!")
+        return True
+    except Exception as e:
+        print(f"Ошибка при обновлении: {e}")
+        return False
+
+if any(a.strip().lower() in ("--update", "-u", "update") for a in sys.argv[1:]):
+    perform_self_update()
+    sys.exit(0)
 
 if any(a.strip().lower() in ("--version", "-v", "version") for a in sys.argv[1:]):
     print(f"PoE Heist & PoE 2 Tracker v{VERSION} (Author: {AUTHOR})")
@@ -295,8 +371,15 @@ if overlay_mode:
                 icon.stop()
                 r.after(0, r.destroy)
 
+            def run_upd_from_tray(icon, item):
+                if perform_self_update():
+                    icon.stop()
+                    r.after(0, r.destroy)
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
+
             menu = pystray.Menu(
                 pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
+                pystray.MenuItem("Проверить обновления", run_upd_from_tray),
                 pystray.MenuItem("Выход", quit_app)
             )
             tray = pystray.Icon("poe_tracker", img, "PoE Tracker", menu)
@@ -304,6 +387,16 @@ if overlay_mode:
         except Exception:
             pass
 
+    def bg_update_check():
+        try:
+            latest, _ = check_latest_release()
+            if parse_ver(latest) > parse_ver(VERSION):
+                r.after(0, lambda: t.config(text=f"{title} [Новая v{latest}!]"))
+        except Exception:
+            pass
+
+    import threading as _th
+    _th.Thread(target=bg_update_check, daemon=True).start()
     setup_tray()
     upd(); r.mainloop()
 elif live_mode:
