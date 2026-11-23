@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.6.5"
+VERSION = "1.6.6"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -221,6 +221,68 @@ poe2_pinnacles = {
     "Stone Citadel", "Каменная цитадель", "Vaal Temple", "Храм Ваал", "Paracosm", "Паракосм"
 }
 
+cassia_rx = re.compile(r"^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*?(?:Sister Cassia:|Сестра Кассия:)\s*(.*)")
+oil_rx = re.compile(r"(Golden Oil|Silver Oil|Tainted Oil|Prismatic Oil|Reflective Oil|Золотое масло|Серебряное масло|Осквернённое масло|Оскверненное масло|Призматическое масло|Отражающее масло)", re.I)
+
+def stats_blight():
+    events, cur = [], "—"
+    oils = defaultdict(int)
+    with open(log_path, encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            m = rx.search(line)
+            if m:
+                ts = datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S")
+                z = m.group(2) or m.group(3)
+                cur = z
+                if not start_date or ts.date() >= start_date: events.append(("zone", ts, z))
+                continue
+            cm = cassia_rx.search(line)
+            if cm:
+                ts = datetime.strptime(cm.group(1), "%Y/%m/%d %H:%M:%S")
+                if not start_date or ts.date() >= start_date: events.append(("cassia", ts, cm.group(2)))
+                continue
+            om = oil_rx.search(line)
+            if om and len(line) >= 19:
+                try:
+                    ts = datetime.strptime(line[:19], "%Y/%m/%d %H:%M:%S")
+                    if not start_date or ts.date() >= start_date: oils[om.group(1).title()] += 1
+                except Exception: pass
+    bl_m = rav_m = enc = wins = fails = 0
+    z_cnt = defaultdict(int)
+    bl_rec, rav_rec = [], []
+    t_run = t_ho = 0.0
+    in_bl = seen_c = seen_out = False
+    z_list = [(ts, z) for k, ts, z in events if k == "zone"]
+    zi = 0
+    for k, ts, val in events:
+        if k == "cassia":
+            sp = val.lower()
+            if not in_bl and not seen_c: enc += 1; seen_c = True; z_cnt["Встречи Кассии"] += 1
+            if not seen_out:
+                if any(w in sp for w in ("destroyed", "уничтожен", "о нет! насос", "oh, no! the pump")): fails += 1; seen_out = True
+                elif any(w in sp for w in ("wonderful", "turned to ash", "чудесно", "обратились в прах", "очищена")): wins += 1; seen_out = True
+            continue
+        seen_c = seen_out = False
+        zl = val.lower()
+        dur = (z_list[zi + 1][0] - ts).total_seconds() if zi + 1 < len(z_list) else 0
+        zi += 1
+        vd = 30 <= dur <= 1800
+        if "hideout" in zl or "убежище" in zl:
+            in_bl = False
+            if 1 <= dur <= 900: t_ho += dur
+            continue
+        if zl.startswith(("blight-ravaged ", "осквернённая ", "оскверненная ")):
+            in_bl = True; rav_m += 1; z_cnt[val] += 1
+            if vd: rav_rec.append((dur, val, ts)); t_run += dur
+        elif zl.startswith(("blight ", "blighted ", "заражённая ", "зараженная ")):
+            in_bl = True; bl_m += 1; z_cnt[val] += 1
+            if vd: bl_rec.append((dur, val, ts)); t_run += dur
+        else: in_bl = False
+    tf = t_run + t_ho
+    wr = (wins / (wins + fails) * 100) if (wins + fails) > 0 else 0
+    return {"cur": cur, "bl": bl_m, "rav": rav_m, "enc": enc, "wins": wins, "fails": fails, "wr": wr, "oils": sum(oils.values()), "oil_detail": dict(oils), "ab": sum(x for x, _, _ in bl_rec)/len(bl_rec) if bl_rec else 0, "bb": min(bl_rec, key=itemgetter(0)) if bl_rec else None, "ar": sum(x for x, _, _ in rav_rec)/len(rav_rec) if rav_rec else 0, "br": min(rav_rec, key=itemgetter(0)) if rav_rec else None, "rph": (bl_m + rav_m)/(tf/3600) if tf > 0 else 0, "tr": t_run, "th": t_ho, "sh": (t_run/tf*100) if tf > 0 else 0, "zc": z_cnt}
+
+
 def stats_poe2():
     runs, cur = [], "—"
     with open(log_path, encoding="utf-8", errors="ignore") as f:
@@ -375,7 +437,8 @@ def out_text():
         f"В Гавани:  {fmt(s['tb'])} (стоп {fmt(s['ah'])})"
     )
 
-if overlay_mode:
+if __name__ == "__main__":
+  if overlay_mode:
     import tkinter as tk
     r = tk.Tk()
     r.overrideredirect(True); r.attributes("-topmost", True)
@@ -467,7 +530,7 @@ if overlay_mode:
     _th.Thread(target=bg_update_check, daemon=True).start()
     r.after(400, setup_tray)
     upd(); r.mainloop()
-elif live_mode:
+  elif live_mode:
     lm = ls = 0
     try:
         while True:
@@ -477,7 +540,7 @@ elif live_mode:
                 sys.stdout.write("\033[H\033[J" + out_text() + "\n")
             time.sleep(1.5)
     except KeyboardInterrupt: pass
-else:
+  else:
     print(out_text() + "\n\nТоп локаций:")
     zc = (stats_poe2() if poe2_mode else stats_poe1())["zc"]
     for z, c in sorted(zc.items(), key=itemgetter(1), reverse=True)[:15]: print(f"  {z}: {c}")
