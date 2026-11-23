@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.10.4"
+VERSION = "1.10.5"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -155,7 +155,8 @@ LEAGUES_POE1 = [
     ("3.25 Settlers (26.07.24–09.06.25)", date(2024, 7, 26), date(2025, 6, 9), "3.25"),
 ]
 LEAGUES_POE2 = [
-    ("0.5.0 Runes of Aldur (Текущая)", date(2026, 5, 29), None, "0.5.0"),
+    ("0.5.5 Forbidden Rites (Текущая)", date(2026, 9, 4), None, "0.5.5"),
+    ("0.5.0 Runes of Aldur (29.05–01.09.26)", date(2026, 5, 29), date(2026, 9, 1), "0.5.0"),
     ("0.4.0 Fate of the Vaal (12.12.25–25.05.26)", date(2025, 12, 12), date(2026, 5, 25), "0.4.0"),
     ("0.3.0 The Third Edict (29.08–08.12.25)", date(2025, 8, 29), date(2025, 12, 8), "0.3.0"),
     ("0.2.0 Dawn of the Hunt (04.04–26.08.25)", date(2025, 4, 4), date(2025, 8, 26), "0.2.0"),
