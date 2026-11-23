@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.8.1"
+VERSION = "1.9.0"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -230,8 +230,8 @@ def open_log_fast(path):
         try:
             size = os.path.getsize(path)
             # Если файл больше 15 МБ и задана дата, пропускаем старые архивы
-            if size > 15 * 1024 * 1024:
-                f.seek(size - 15 * 1024 * 1024)
+            if size > 4 * 1024 * 1024:
+                f.seek(size - 4 * 1024 * 1024)
                 f.readline()
         except Exception:
             pass
@@ -506,6 +506,23 @@ if __name__ == "__main__":
     sw = tk.Label(h, text=get_btn_label(), bg="#2b313c", fg="#a3be8c", font=("Sans", 8, "bold"), padx=5, pady=1, cursor="hand2")
     sw.pack(side="right", padx=4, pady=2)
 
+    import threading as _bg_th
+
+    def render_async(force_prewarm=False):
+        def _job():
+            try:
+                cur_txt = out_text()
+                r.after(0, lambda: lbl.config(text=cur_txt))
+                if force_prewarm and not poe2_mode:
+                    global blight_mode
+                    orig = blight_mode
+                    blight_mode = not orig
+                    out_text()
+                    blight_mode = orig
+            except Exception as e:
+                logger.error(f"Ошибка фонового рендера: {e}")
+        _bg_th.Thread(target=_job, daemon=True).start()
+
     def switch_mode(event=None):
         global blight_mode, poe2_mode, log_path
         if poe2_mode:
@@ -516,7 +533,16 @@ if __name__ == "__main__":
             blight_mode = not blight_mode
         t.config(text=get_title())
         sw.config(text=get_btn_label())
-        lbl.config(text=out_text())
+        # Если в кэше уже есть готовый текст — ставим мгновенно без ожидания диска
+        try:
+            fs = os.stat(log_path)
+            ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, start_date)
+            if ckey in _render_cache:
+                lbl.config(text=_render_cache[ckey])
+                return
+        except Exception:
+            pass
+        render_async()
 
     sw.bind("<Button-1>", switch_mode)
     for w in (h, t):
@@ -531,7 +557,7 @@ if __name__ == "__main__":
             if fs.st_mtime != st["m"] or fs.st_size != st["s"]:
                 st["m"], st["s"] = fs.st_mtime, fs.st_size
                 t0 = time.perf_counter()
-                lbl.config(text=out_text())
+                render_async(force_prewarm=True)
                 logger.debug(f"Оверлей обновлен за {(time.perf_counter()-t0)*1000:.1f} мс")
         except Exception as e:
             logger.error(f"Ошибка обновления оверлея: {e}", exc_info=True)
