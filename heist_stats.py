@@ -146,6 +146,21 @@ if (_want_bg or _want_ov) and not _stay_fg:
     print("ExilePace запущен в фоновом режиме. Консоль можно закрыть.")
     sys.exit(0)
 
+_lock_fp = None
+if any(a.strip().lower() in ("--overlay", "-o", "overlay") for a in sys.argv[1:]):
+    try:
+        _lock_path = APP_DIR / (".lock_poe2" if any(a.strip().lower() in ("--poe2", "-2", "poe2") for a in sys.argv[1:]) else ".lock_poe1")
+        _lock_fp = open(_lock_path, "w")
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(_lock_fp.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(_lock_fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except Exception:
+        print("ExilePace уже запущен в фоновом режиме (проверьте значок в трее).")
+        sys.exit(0)
+
 if any(a.strip().lower() in ("--version", "-v", "version") for a in sys.argv[1:]):
     print(f"PoE Heist & PoE 2 Tracker v{VERSION} (Author: {AUTHOR})")
     sys.exit(0)
