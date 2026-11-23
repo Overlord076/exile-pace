@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.12.0"
+VERSION = "1.12.1"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -126,11 +126,18 @@ if any(a.strip().lower() in ("--update", "-u", "update") for a in sys.argv[1:]):
     perform_self_update()
     sys.exit(0)
 
-if any(a.strip().lower() in ("--bg", "--daemon", "bg") for a in sys.argv[1:]):
+_args_low = [a.strip().lower() for a in sys.argv[1:]]
+_want_ov = any(a in ("--overlay", "-o", "overlay") for a in _args_low)
+_want_bg = any(a in ("--bg", "--daemon", "bg") for a in _args_low)
+_stay_fg = any(a in ("--fg", "--foreground", "fg", "--debug", "-d", "debug") for a in _args_low) or os.environ.get("EXILEPACE_DETACHED") == "1"
+
+if (_want_bg or _want_ov) and not _stay_fg:
     import subprocess
     clean_args = [a for a in sys.argv[1:] if a.strip().lower() not in ("--bg", "--daemon", "bg")]
     cmd = [sys.executable] + ([str(Path(__file__).resolve())] if not getattr(sys, "frozen", False) else []) + clean_args
-    kwargs = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "env": os.environ.copy()}
+    env_copy = os.environ.copy()
+    env_copy["EXILEPACE_DETACHED"] = "1"
+    kwargs = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "env": env_copy}
     if os.name == "nt":
         kwargs["creationflags"] = 0x00000008 | 0x00000200
     else:
@@ -170,7 +177,7 @@ end_date = cur_league[2] if cur_league else None
 
 for a in sys.argv[1:]:
     a = a.strip().lower()
-    if a in ("--poe2", "-2", "poe2", "--blight", "-b", "blight", "--ultimatum", "--chaos", "ultimatum", "chaos", "--live", "-l", "live", "--overlay", "-o", "overlay"): continue
+    if a in ("--poe2", "-2", "poe2", "--blight", "-b", "blight", "--ultimatum", "--chaos", "ultimatum", "chaos", "--live", "-l", "live", "--overlay", "-o", "overlay", "--fg", "--foreground", "fg"): continue
     if a in ("league", "--league", "лига"): pass
     elif a == "today": start_date = date.today()
     else:
