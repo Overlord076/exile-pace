@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.8.0"
+VERSION = "1.8.1"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -224,10 +224,25 @@ poe2_pinnacles = {
 cassia_rx = re.compile(r"^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*?(?:Sister Cassia:|Сестра Кассия:)\s*(.*)")
 oil_rx = re.compile(r"(Golden Oil|Silver Oil|Tainted Oil|Prismatic Oil|Reflective Oil|Золотое масло|Серебряное масло|Осквернённое масло|Оскверненное масло|Призматическое масло|Отражающее масло)", re.I)
 
+def open_log_fast(path):
+    f = open(path, encoding="utf-8", errors="ignore")
+    if start_date:
+        try:
+            size = os.path.getsize(path)
+            # Если файл больше 15 МБ и задана дата, пропускаем старые архивы
+            if size > 15 * 1024 * 1024:
+                f.seek(size - 15 * 1024 * 1024)
+                f.readline()
+        except Exception:
+            pass
+    return f
+
+_render_cache = {}
+
 def stats_blight():
     events, cur = [], "—"
     oils = defaultdict(int)
-    with open(log_path, encoding="utf-8", errors="ignore") as f:
+    with open_log_fast(log_path) as f:
         for line in f:
             m = rx.search(line)
             if m:
@@ -285,7 +300,7 @@ def stats_blight():
 
 def stats_poe2():
     runs, cur = [], "—"
-    with open(log_path, encoding="utf-8", errors="ignore") as f:
+    with open_log_fast(log_path) as f:
         for line in f:
             m = rx.search(line)
             if not m: continue
@@ -347,7 +362,7 @@ def stats_poe2():
     }
 def stats_poe1():
     runs, cur = [], "—"
-    with open(log_path, encoding="utf-8", errors="ignore") as f:
+    with open_log_fast(log_path) as f:
         for line in f:
             m = rx.search(line)
             if not m: continue
@@ -408,6 +423,13 @@ def stats_poe1():
     }
 
 def out_text():
+    try:
+        fs = os.stat(log_path)
+        ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, start_date)
+        if ckey in _render_cache:
+            return _render_cache[ckey]
+    except Exception:
+        ckey = None
     if blight_mode:
         s = stats_blight()
         bb = fmt(s["bb"]) if s["bb"] else "н/д"
@@ -428,7 +450,7 @@ def out_text():
     if poe2_mode:
         s = stats_poe2()
         bm = fmt(s["bm"][0]) if s["bm"] else "н/д"
-        return (
+        _res = (
             f"Зона: {s['cur'][:24]}\n"
             f"──────────────────────────────\n"
             f"Сехем:     {s['sek_r']} заб. / {s['sek_f']} эт. (ср. {fmt(s['as'])})\n"
@@ -439,10 +461,12 @@ def out_text():
             f"Темп:      {s['rph']:.1f} забегов/час\n"
             f"В забегах: {fmt(s['ta'])} ({s['sh']:.0f}%) | Хаб: {fmt(s['th'])}"
         )
+        if ckey: _render_cache[ckey] = _res
+        return _res
     s = stats_poe1()
     bc = fmt(s["bc"][0]) if s["bc"] else "н/д"
     bw = fmt(s["bw"][0]) if s["bw"] else "н/д"
-    return (
+    _res = (
         f"Зона: {s['cur'][:24]}\n"
         f"──────────────────────────────\n"
         f"Контракты: {s['c']} (ср. {fmt(s['ac'])})\n"
@@ -453,6 +477,8 @@ def out_text():
         f"В забегах: {fmt(s['th'])} ({s['sh']:.0f}%)\n"
         f"В Гавани:  {fmt(s['tb'])} (стоп {fmt(s['ah'])})"
     )
+    if ckey: _render_cache[ckey] = _res
+    return _res
 
 if __name__ == "__main__":
   if overlay_mode:
