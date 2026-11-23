@@ -134,7 +134,7 @@ start_date = None
 
 for a in sys.argv[1:]:
     a = a.strip().lower()
-    if a in ("--poe2", "-2", "poe2", "--live", "-l", "live", "--overlay", "-o", "overlay"): continue
+    if a in ("--poe2", "-2", "poe2", "--blight", "-b", "blight", "--live", "-l", "live", "--overlay", "-o", "overlay"): continue
     if a == "today": start_date = date.today()
     else:
         for f in ("%Y-%m-%d", "%d.%m.%Y", "%Y/%m/%d"):
