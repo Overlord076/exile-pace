@@ -44,13 +44,13 @@ powershell -NoProfile -Command ^
   "$desk = [Environment]::GetFolderPath('Desktop'); " ^
   "$s1 = $ws.CreateShortcut(\"$desk\PoE 1 Heist Overlay.lnk\"); " ^
   "$s1.TargetPath = '%PYTHONW_PATH%'; " ^
-  "$s1.Arguments = '\"%INSTALL_DIR%\heist_stats.py\" today --overlay'; " ^
+  "$s1.Arguments = '\"%INSTALL_DIR%\heist_stats.py\" league --overlay'; " ^
   "$s1.WorkingDirectory = '%INSTALL_DIR%'; " ^
   "$s1.IconLocation = 'shell32.dll,13'; " ^
   "$s1.Save(); " ^
   "$s2 = $ws.CreateShortcut(\"$desk\PoE 2 Tracker Overlay.lnk\"); " ^
   "$s2.TargetPath = '%PYTHONW_PATH%'; " ^
-  "$s2.Arguments = '\"%INSTALL_DIR%\heist_stats.py\" --poe2 today --overlay'; " ^
+  "$s2.Arguments = '\"%INSTALL_DIR%\heist_stats.py\" --poe2 league --overlay'; " ^
   "$s2.WorkingDirectory = '%INSTALL_DIR%'; " ^
   "$s2.IconLocation = 'shell32.dll,13'; " ^
   "$s2.Save();"
