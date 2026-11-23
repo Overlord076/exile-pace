@@ -35,12 +35,21 @@ class TestExilePace(unittest.TestCase):
         self.p2.write_text(P2_LOG, encoding="utf-8")
         self.emp.write_text("broken line\n", encoding="utf-8")
 
+        self.cfg_file = SCRIPT.parent / "config.json"
+        self.orig_cfg = self.cfg_file.read_text(encoding="utf-8") if self.cfg_file.exists() else None
+        import json
+        self.cfg_file.write_text(json.dumps({"log_path_poe1": str(self.p1), "log_path_poe2": str(self.p2)}), encoding="utf-8")
+
         spec = importlib.util.spec_from_file_location("heist_stats", str(SCRIPT))
         self.mod = importlib.util.module_from_spec(spec)
         sys.argv = ["heist_stats.py"]
         spec.loader.exec_module(self.mod)
 
     def tearDown(self):
+        if self.orig_cfg is not None:
+            self.cfg_file.write_text(self.orig_cfg, encoding="utf-8")
+        elif self.cfg_file.exists():
+            self.cfg_file.unlink()
         self.tmp.cleanup()
 
     def test_heist(self):
