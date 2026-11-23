@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.15.1"
+VERSION = "1.15.2"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -271,15 +271,26 @@ def open_log_fast(path):
     f = open(path, encoding="utf-8", errors="ignore")
     if start_date:
         try:
-            days_ago = max(0, (date.today() - start_date).days)
-            if days_ago <= 30:
-                max_bytes = 4 * 1024 * 1024 if days_ago <= 1 else min(120 * 1024 * 1024, (days_ago + 1) * 4 * 1024 * 1024)
-                size = os.path.getsize(path)
-                if size > max_bytes:
-                    f.seek(size - max_bytes)
-                    f.readline()
+            target_str = start_date.strftime("%Y/%m/%d")
+            size = os.path.getsize(path)
+            lo, hi = 0, size
+            while hi - lo > 65536:
+                mid = (lo + hi) // 2
+                f.seek(mid)
+                f.readline()
+                line = f.readline()
+                if not line:
+                    hi = mid
+                    continue
+                if line[:10] < target_str:
+                    lo = mid
+                else:
+                    hi = mid
+            f.seek(lo)
+            if lo > 0:
+                f.readline()
         except Exception:
-            pass
+            f.seek(0)
     return f
 
 _render_cache = {}
