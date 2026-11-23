@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.14.3"
+VERSION = "1.14.4"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -723,7 +723,7 @@ if __name__ == "__main__":
         except Exception as e:
             logger.error(f"Ошибка обновления оверлея: {e}", exc_info=True)
             lbl.config(text=f"Ошибка чтения лога (см. tracker.log):\n{e}")
-        r.after(1500, upd)
+        r.after(400, upd)
 
     def setup_tray():
         try:
@@ -861,7 +861,7 @@ if __name__ == "__main__":
             if fs.st_mtime != lm or fs.st_size != ls:
                 lm, ls = fs.st_mtime, fs.st_size
                 sys.stdout.write("\033[H\033[J" + out_text() + "\n")
-            time.sleep(1.5)
+            time.sleep(0.4)
     except KeyboardInterrupt: pass
   else:
     print(out_text() + "\n\nТоп локаций:")
