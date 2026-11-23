@@ -31,6 +31,8 @@ set "INSTALL_DIR=%LOCALAPPDATA%\PoE-Heist-Tracker"
 echo [2/3] Копируем файлы в "%INSTALL_DIR%"...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 copy /Y "%~dp0heist_stats.py" "%INSTALL_DIR%\heist_stats.py" >nul
+copy /Y "%~dp0icon.png" "%INSTALL_DIR%\icon.png" >nul
+python -m pip install --quiet pystray pillow
 
 :: 3. Создание ярлыков на Рабочем столе через PowerShell
 echo [3/3] Создаем ярлыки на Рабочем столе...

@@ -9,8 +9,9 @@ from datetime import datetime, date
 from collections import defaultdict
 from operator import itemgetter
 
-APP_DIR = Path(__file__).resolve().parent
-CONFIG_FILE = APP_DIR / "config.json"
+APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+DATA_DIR = Path(__file__).resolve().parent
+CONFIG_FILE = DATA_DIR / "config.json"
 
 if any(a.strip().lower() in ("--version", "-v", "version") for a in sys.argv[1:]):
     print(f"PoE Heist & PoE 2 Tracker v{VERSION} (Author: {AUTHOR})")
@@ -272,6 +273,38 @@ if overlay_mode:
             st["m"], st["s"] = fs.st_mtime, fs.st_size
             lbl.config(text=out_text())
         r.after(1500, upd)
+    def setup_tray():
+        try:
+            import threading, pystray
+            from PIL import Image
+            ico_file = APP_DIR / "icon.png"
+            if not ico_file.is_file():
+                return
+            img = Image.open(ico_file)
+            visible = {"state": True}
+
+            def toggle_overlay(icon, item):
+                if visible["state"]:
+                    r.after(0, r.withdraw)
+                    visible["state"] = False
+                else:
+                    r.after(0, r.deiconify)
+                    visible["state"] = True
+
+            def quit_app(icon, item):
+                icon.stop()
+                r.after(0, r.destroy)
+
+            menu = pystray.Menu(
+                pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
+                pystray.MenuItem("Выход", quit_app)
+            )
+            tray = pystray.Icon("poe_tracker", img, "PoE Tracker", menu)
+            threading.Thread(target=tray.run, daemon=True).start()
+        except Exception:
+            pass
+
+    setup_tray()
     upd(); r.mainloop()
 elif live_mode:
     lm = ls = 0

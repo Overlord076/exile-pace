@@ -35,10 +35,10 @@ jobs:
 
       - name: Install tkinter on Linux
         if: matrix.install_tk
-        run: sudo apt-get update && sudo apt-get install -y python3-tk
+        run: sudo apt-get update && sudo apt-get install -y python3-tk gir1.2-ayatanaappindicator3-0.1 python3-gi
 
       - name: Install PyInstaller
-        run: pip install pyinstaller
+        run: pip install pyinstaller pystray pillow
 
       - name: Build binary
         run: pyinstaller --onefile --noconsole --name "poe-tracker" heist_stats.py
