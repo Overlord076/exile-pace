@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.10.5"
+VERSION = "1.11.0"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -329,39 +329,84 @@ def stats_poe2():
             ts = datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S")
             z = m.group(2) or m.group(3)
             cur = z
-            if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date): runs.append((ts, z))
+            if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date):
+                runs.append((ts, z))
+
+    sek_hubs = {"trial of the sekhemas", "испытание сехем", "испытания сехем"}
+    sek_floors_kw = ("test of strength", "test of will", "test of cunning", "test of time", "испытание силы", "испытание воли", "испытание хитрости", "испытание времени", "sekhema", "сехем")
+    chaos_hubs = {"the temple of chaos", "temple of chaos", "храм хаоса"}
+    chaos_kw = ("trial of chaos", "испытание хаоса", "испытания хаоса", "ultimatum", "ультиматум")
 
     sek_runs = sek_floors = chaos_runs = chaos_rooms = pin_cnt = map_cnt = 0
     z_cnt = defaultdict(int)
-    map_rec, pin_rec, sek_rec = [], [], []
+    map_rec, pin_rec, sek_rec, chaos_rec = [], [], [], []
     t_act = t_hub = 0.0
     i = 0
     while i < len(runs):
         ts, z = runs[i]
         zl = z.lower()
-        is_hub = (z in poe2_hubs) or ("hideout" in zl) or ("убежище" in zl)
+        is_hub = (z in poe2_hubs) or (zl in sek_hubs) or (zl in chaos_hubs) or ("hideout" in zl) or ("убежище" in zl)
         if is_hub:
             if i + 1 < len(runs):
                 hd = (runs[i+1][0] - ts).total_seconds()
                 if 1 <= hd <= 900: t_hub += hd
             i += 1; continue
 
+        if zl not in sek_hubs and any(k in zl for k in sek_floors_kw):
+            sek_runs += 1
+            floors = 0
+            run_dur = 0.0
+            j = i
+            while j < len(runs):
+                fts, fz = runs[j]
+                fzl = fz.lower()
+                if fzl not in sek_hubs and any(k in fzl for k in sek_floors_kw):
+                    floors += 1
+                    z_cnt["Испытание Сехем"] += 1
+                    if j + 1 < len(runs):
+                        fd = (runs[j+1][0] - fts).total_seconds()
+                        if 10 <= fd <= 1800:
+                            run_dur += fd
+                            t_act += fd
+                    j += 1
+                else:
+                    break
+            sek_floors += floors
+            if run_dur >= 20:
+                sek_rec.append((run_dur, f"Сехем ({floors} эт.)", ts))
+            i = j
+            continue
+
+        if zl not in chaos_hubs and any(k in zl for k in chaos_kw):
+            chaos_runs += 1
+            rooms = 0
+            run_dur = 0.0
+            j = i
+            while j < len(runs):
+                cts, cz = runs[j]
+                czl = cz.lower()
+                if czl not in chaos_hubs and any(k in czl for k in chaos_kw):
+                    rooms += 1
+                    z_cnt["Ультиматум (Хаос)"] += 1
+                    if j + 1 < len(runs):
+                        cd = (runs[j+1][0] - cts).total_seconds()
+                        if 10 <= cd <= 1800:
+                            run_dur += cd
+                            t_act += cd
+                    j += 1
+                else:
+                    break
+            chaos_rooms += rooms
+            if run_dur >= 20:
+                chaos_rec.append((run_dur, f"Ультиматум ({rooms} комн.)", ts))
+            i = j
+            continue
+
         dur = (runs[i+1][0] - ts).total_seconds() if i + 1 < len(runs) else 0
         valid_d = 20 <= dur <= 1800
         if valid_d: t_act += dur
 
-        if "sekhema" in zl or "сехем" in zl:
-            sek_floors += 1
-            if i == 0 or ("sekhema" not in runs[i-1][1].lower() and "сехем" not in runs[i-1][1].lower()):
-                sek_runs += 1
-            if valid_d: sek_rec.append((dur, z, ts))
-            z_cnt["Испытание Сехем"] += 1
-        elif "trial of chaos" in zl or "испытание хаоса" in zl:
-            chaos_rooms += 1
-            if i == 0 or ("chaos" not in runs[i-1][1].lower() and "хаос" not in runs[i-1][1].lower()):
-                chaos_runs += 1
-            z_cnt["Испытание Хаоса"] += 1
-        elif z in poe2_pinnacles or "citadel" in zl or "цитадель" in zl:
+        if z in poe2_pinnacles or "citadel" in zl or "цитадель" in zl:
             pin_cnt += 1
             if valid_d: pin_rec.append((dur, z, ts))
             z_cnt[z] += 1
@@ -371,14 +416,19 @@ def stats_poe2():
             z_cnt[z] += 1
         i += 1
 
-    tot = map_cnt + pin_cnt + sek_runs + chaos_runs
+    tot = sek_runs + chaos_runs + pin_cnt + map_cnt
     tf = t_act + t_hub
     return {
-        "cur": cur, "maps": map_cnt, "pins": pin_cnt,
-        "sek_r": sek_runs, "sek_f": sek_floors, "ch_r": chaos_runs, "ch_f": chaos_rooms,
+        "cur": cur,
+        "sek_r": sek_runs, "sek_f": sek_floors,
+        "as": sum(x[0] for x in sek_rec)/len(sek_rec) if sek_rec else 0,
+        "bs": min(sek_rec, key=itemgetter(0)) if sek_rec else None,
+        "ch_r": chaos_runs, "ch_f": chaos_rooms,
+        "ac": sum(x[0] for x in chaos_rec)/len(chaos_rec) if chaos_rec else 0,
+        "bc": min(chaos_rec, key=itemgetter(0)) if chaos_rec else None,
+        "pins": pin_cnt, "maps": map_cnt,
         "am": sum(x[0] for x in map_rec)/len(map_rec) if map_rec else 0,
         "bm": min(map_rec, key=itemgetter(0)) if map_rec else None,
-        "as": sum(x[0] for x in sek_rec)/len(sek_rec) if sek_rec else 0,
         "rph": tot/(tf/3600) if tf > 0 else 0,
         "ta": t_act, "th": t_hub, "sh": (t_act/tf*100) if tf > 0 else 0, "zc": z_cnt
     }
@@ -452,7 +502,7 @@ def out_text():
             return _render_cache[ckey]
     except Exception:
         ckey = None
-    if blight_mode:
+    if not poe2_mode and blight_mode:
         s = stats_blight()
         bb = fmt(s["bb"]) if s["bb"] else "н/д"
         br = fmt(s["br"]) if s["br"] else "н/д"
@@ -471,17 +521,18 @@ def out_text():
         return chr(10).join(lines)
     if poe2_mode:
         s = stats_poe2()
-        bm = fmt(s["bm"][0]) if s["bm"] else "н/д"
+        bs = fmt(s["bs"][0]) if s["bs"] else "н/д"
+        bc = fmt(s["bc"][0]) if s["bc"] else "н/д"
         _res = (
             f"Зона: {s['cur'][:24]}\n"
             f"──────────────────────────────\n"
-            f"Сехем:     {s['sek_r']} заб. / {s['sek_f']} эт. (ср. {fmt(s['as'])})\n"
-            f"Хаос:      {s['ch_r']} заб. / {s['ch_f']} комн.\n"
-            f"Пинаклы:   {s['pins']} | Карты: {s['maps']} (ср. {fmt(s['am'])})\n"
-            f"Рекорд к.: {bm}\n"
+            f"Сехем:      {s['sek_r']} заб. / {s['sek_f']} эт. (ср. {fmt(s['as'])})\n"
+            f"Ультиматум: {s['ch_r']} заб. / {s['ch_f']} комн. (ср. {fmt(s['ac'])})\n"
+            f"Рекорды:    сехем {bs} | ульт. {bc}\n"
+            f"Карты/Босс: {s['maps']} / {s['pins']} (ср. {fmt(s['am'])})\n"
             f"──────────────────────────────\n"
-            f"Темп:      {s['rph']:.1f} забегов/час\n"
-            f"В забегах: {fmt(s['ta'])} ({s['sh']:.0f}%) | Хаб: {fmt(s['th'])}"
+            f"Темп:       {s['rph']:.1f} забегов/час\n"
+            f"В забегах:  {fmt(s['ta'])} ({s['sh']:.0f}%) | Хаб: {fmt(s['th'])}"
         )
         if ckey: _render_cache[ckey] = _res
         return _res
@@ -528,7 +579,8 @@ if __name__ == "__main__":
     x.bind("<Button-1>", lambda e: r.destroy())
 
     sw = tk.Label(h, text=get_btn_label(), bg="#2b313c", fg="#a3be8c", font=("Sans", 8, "bold"), padx=5, pady=1, cursor="hand2")
-    sw.pack(side="right", padx=4, pady=2)
+    if not poe2_mode:
+        sw.pack(side="right", padx=4, pady=2)
 
     import threading as _bg_th
 
@@ -657,14 +709,18 @@ if __name__ == "__main__":
 
             period_menu = pystray.Menu(lambda: build_period_items())
 
-            menu = pystray.Menu(
+            tray_items = [
                 pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
                 pystray.MenuItem("Период / Лига", period_menu),
-                pystray.MenuItem("Переключить режим (Heist / Blight)", lambda icon, item: r.after(0, switch_mode)),
+            ]
+            if not poe2_mode:
+                tray_items.append(pystray.MenuItem("Переключить режим (Heist / Blight)", lambda icon, item: r.after(0, switch_mode)))
+            tray_items.extend([
                 pystray.MenuItem("Открыть лог отладки", open_log_file),
                 pystray.MenuItem("Проверить обновления", run_upd_from_tray),
                 pystray.MenuItem("Выход", quit_app)
-            )
+            ])
+            menu = pystray.Menu(*tray_items)
             tray = pystray.Icon("exile_pace", img, "ExilePace", menu)
             threading.Thread(target=tray.run, daemon=True).start()
             logger.info("Значок Разбойничьего жетона запущен в трее")
