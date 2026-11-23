@@ -1,5 +1,5 @@
 # Author: MuonSuzuki | Created with AI assistance
-VERSION = "1.6.2"
+VERSION = "1.6.3"
 AUTHOR = "MuonSuzuki"
 
 
@@ -127,7 +127,7 @@ if any(a.strip().lower() in ("--bg", "--daemon", "bg") for a in sys.argv[1:]):
     import subprocess
     clean_args = [a for a in sys.argv[1:] if a.strip().lower() not in ("--bg", "--daemon", "bg")]
     cmd = [sys.executable] + ([str(Path(__file__).resolve())] if not getattr(sys, "frozen", False) else []) + clean_args
-    kwargs = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    kwargs = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "env": os.environ.copy()}
     if os.name == "nt":
         kwargs["creationflags"] = 0x00000008 | 0x00000200
     else:
@@ -449,20 +449,20 @@ if overlay_mode:
             )
             tray = pystray.Icon("poe_tracker", img, "PoE Tracker", menu)
             threading.Thread(target=tray.run, daemon=True).start()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Трей не инициализирован: {e}")
 
     def bg_update_check():
         try:
             latest, _ = check_latest_release()
             if parse_ver(latest) > parse_ver(VERSION):
                 r.after(0, lambda: t.config(text=f"{title} [Новая v{latest}!]"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Трей не инициализирован: {e}")
 
     import threading as _th
     _th.Thread(target=bg_update_check, daemon=True).start()
-    setup_tray()
+    r.after(400, setup_tray)
     upd(); r.mainloop()
 elif live_mode:
     lm = ls = 0
