@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.14.4"
+VERSION = "1.15.0"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -283,6 +283,7 @@ def open_log_fast(path):
     return f
 
 _render_cache = {}
+_active_zone_start = None  # datetime входа в текущую боевую зону (None, если в хабе/убежище)
 
 def stats_blight():
     events, cur = [], "—"
@@ -340,6 +341,16 @@ def stats_blight():
         else: in_bl = False
     tf = t_run + t_ho
     wr = (wins / (wins + fails) * 100) if (wins + fails) > 0 else 0
+    global _active_zone_start
+    if not poe2_mode and blight_mode:
+        if z_list:
+            lts, lz = z_list[-1]
+            lzl = lz.lower()
+            if ("hideout" not in lzl and "убежище" not in lzl and lz not in harbour
+                    and (datetime.now() - lts).total_seconds() <= 1800):
+                _active_zone_start = lts
+            else:
+                _active_zone_start = None
     return {"cur": cur, "bl": bl_m, "rav": rav_m, "enc": enc, "wins": wins, "fails": fails, "wr": wr, "oils": sum(oils.values()), "oil_detail": dict(oils), "ab": sum(x for x, _, _ in bl_rec)/len(bl_rec) if bl_rec else 0, "bb": min(bl_rec, key=itemgetter(0)) if bl_rec else None, "ar": sum(x for x, _, _ in rav_rec)/len(rav_rec) if rav_rec else 0, "br": min(rav_rec, key=itemgetter(0)) if rav_rec else None, "rph": (bl_m + rav_m)/(tf/3600) if tf > 0 else 0, "tr": t_run, "th": t_ho, "sh": (t_run/tf*100) if tf > 0 else 0, "zc": z_cnt}
 
 
@@ -439,6 +450,16 @@ def stats_poe2():
             z_cnt[z] += 1
         i += 1
 
+    global _active_zone_start
+    if poe2_mode:
+        if runs:
+            lts, lz = runs[-1]
+            lzl = lz.lower()
+            is_h = (lz in poe2_hubs) or (lzl in chaos_hubs) or ("hideout" in lzl) or ("убежище" in lzl)
+            if not is_h and (datetime.now() - lts).total_seconds() <= 1800:
+                _active_zone_start = lts
+            else:
+                _active_zone_start = None
     tot = sek_runs + chaos_runs + pin_cnt + map_cnt
     tf = t_act + t_hub
     return {
@@ -503,6 +524,15 @@ def stats_poe1():
             z_cnt[nz] += wings; i = j
         else: i += 1
 
+    global _active_zone_start
+    if not poe2_mode and not blight_mode:
+        if runs:
+            lts, lz = runs[-1]
+            lzl = lz.lower()
+            if lz not in harbour and "hideout" not in lzl and "убежище" not in lzl and (datetime.now() - lts).total_seconds() <= 1800:
+                _active_zone_start = lts
+            else:
+                _active_zone_start = None
     tot = c_cnt + w_cnt
     tf = t_heist + t_harb
     return {
@@ -711,7 +741,36 @@ if __name__ == "__main__":
         w.bind("<ButtonRelease-1>", save_overlay_pos)
     lbl = tk.Label(r, text="...", bg="#121417", fg="#e6e6e6", justify="left", anchor="w", font=("Monospace", ui_state["font_size"]), padx=8, pady=6)
     lbl.pack()
-    st = {"m": 0, "s": 0}
+    st = {"m": 0, "s": 0, "base_txt": ""}
+    def apply_live_timer(raw_txt):
+        if _active_zone_start is not None:
+            sec = max(0, int((datetime.now() - _active_zone_start).total_seconds()))
+            if sec <= 1800:
+                mm, ss = divmod(sec, 60)
+                lines = raw_txt.split("\n", 1)
+                z_base = lines.split(" (")
+                lines = f"{z_base[:18]} ({mm:02d}:{ss:02d})"
+                return "\n".join(lines)
+        return raw_txt
+
+    # Оборачиваем вывод в lbl, чтобы сохранять базовый текст и тикать секундомер поверх него
+    _orig_render_async = render_async
+    def render_async(force_prewarm=False):
+        snap_b, snap_u = blight_mode, ultimatum_mode
+        def _job():
+            try:
+                cur_txt = out_text(snap_b, snap_u)
+                st["base_txt"] = cur_txt
+                r.after(0, lambda: lbl.config(text=apply_live_timer(cur_txt)))
+                if force_prewarm:
+                    if poe2_mode:
+                        out_text(snap_b, not snap_u)
+                    else:
+                        out_text(not snap_b, snap_u)
+            except Exception as e:
+                logger.error(f"Ошибка фонового рендера: {e}")
+        _bg_th.Thread(target=_job, daemon=True).start()
+
     def upd():
         try:
             fs = os.stat(log_path)
@@ -720,6 +779,8 @@ if __name__ == "__main__":
                 t0 = time.perf_counter()
                 render_async(force_prewarm=True)
                 logger.debug(f"Оверлей обновлен за {(time.perf_counter()-t0)*1000:.1f} мс")
+            elif st["base_txt"] and _active_zone_start is not None:
+                lbl.config(text=apply_live_timer(st["base_txt"]))
         except Exception as e:
             logger.error(f"Ошибка обновления оверлея: {e}", exc_info=True)
             lbl.config(text=f"Ошибка чтения лога (см. tracker.log):\n{e}")
