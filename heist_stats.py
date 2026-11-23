@@ -1,5 +1,5 @@
 # Author: MuonSuzuki | Created with AI assistance
-VERSION = "1.0.0"
+VERSION = "1.6.2"
 AUTHOR = "MuonSuzuki"
 
 
@@ -121,6 +121,19 @@ def perform_self_update():
 
 if any(a.strip().lower() in ("--update", "-u", "update") for a in sys.argv[1:]):
     perform_self_update()
+    sys.exit(0)
+
+if any(a.strip().lower() in ("--bg", "--daemon", "bg") for a in sys.argv[1:]):
+    import subprocess
+    clean_args = [a for a in sys.argv[1:] if a.strip().lower() not in ("--bg", "--daemon", "bg")]
+    cmd = [sys.executable] + ([str(Path(__file__).resolve())] if not getattr(sys, "frozen", False) else []) + clean_args
+    kwargs = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    if os.name == "nt":
+        kwargs["creationflags"] = 0x00000008 | 0x00000200
+    else:
+        kwargs["start_new_session"] = True
+    subprocess.Popen(cmd, **kwargs)
+    print("ExilePace запущен в фоновом режиме. Консоль можно закрыть.")
     sys.exit(0)
 
 if any(a.strip().lower() in ("--version", "-v", "version") for a in sys.argv[1:]):
@@ -368,7 +381,7 @@ if overlay_mode:
     r.configure(bg="#121417", highlightbackground="#3a3f4b", highlightthickness=1); r.geometry("+20+120")
     d = {"x": 0, "y": 0}
     h = tk.Frame(r, bg="#1e2229", cursor="fleur"); h.pack(fill="x")
-    title = f" EXILEPACE: POE 2 v{VERSION}" if poe2_mode else f" EXILEPACE: HEIST v{VERSION}"
+    title = f" EXILEPACE: BLIGHT v{VERSION}" if blight_mode else (f" EXILEPACE: POE 2 v{VERSION}" if poe2_mode else f" EXILEPACE: HEIST v{VERSION}")
     t = tk.Label(h, text=title, bg="#1e2229", fg="#dfcf99", font=("Sans", 9, "bold")); t.pack(side="left", padx=4)
     x = tk.Label(h, text="✕", bg="#1e2229", fg="#8b949e", font=("Sans", 9, "bold"), cursor="hand2"); x.pack(side="right", padx=6)
     x.bind("<Button-1>", lambda e: r.destroy())
