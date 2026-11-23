@@ -1,0 +1,289 @@
+# Author: MuonSuzuki | Created with AI assistance
+VERSION = "1.0.0"
+AUTHOR = "MuonSuzuki"
+
+
+import json, os, re, sys, time
+from pathlib import Path
+from datetime import datetime, date
+from collections import defaultdict
+from operator import itemgetter
+
+APP_DIR = Path(__file__).resolve().parent
+CONFIG_FILE = APP_DIR / "config.json"
+
+if any(a.strip().lower() in ("--version", "-v", "version") for a in sys.argv[1:]):
+    print(f"PoE Heist & PoE 2 Tracker v{VERSION} (Author: {AUTHOR})")
+    sys.exit(0)
+
+poe2_mode = any(a.strip().lower() in ("--poe2", "-2", "poe2") for a in sys.argv[1:])
+live_mode = any(a.strip().lower() in ("--live", "-l", "live") for a in sys.argv[1:])
+overlay_mode = any(a.strip().lower() in ("--overlay", "-o", "overlay") for a in sys.argv[1:])
+start_date = None
+
+for a in sys.argv[1:]:
+    a = a.strip().lower()
+    if a in ("--poe2", "-2", "poe2", "--live", "-l", "live", "--overlay", "-o", "overlay"): continue
+    if a == "today": start_date = date.today()
+    else:
+        for f in ("%Y-%m-%d", "%d.%m.%Y", "%Y/%m/%d"):
+            try: start_date = datetime.strptime(a, f).date(); break
+            except ValueError: pass
+        if not start_date: sys.exit(f"Неверная дата: {a}")
+def find_client_log(is_poe2):
+    key = "log_path_poe2" if is_poe2 else "log_path_poe1"
+    cfg = {}
+    if CONFIG_FILE.exists():
+        try: cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except Exception: cfg = {}
+    saved = cfg.get(key) or (cfg.get("log_path") if not is_poe2 else None)
+    if saved and Path(saved).is_file(): return saved
+
+    folder = "Path of Exile 2" if is_poe2 else "Path of Exile"
+    app_id = "2694490" if is_poe2 else "238960"
+    candidates = [Path(f"/mnt/A812EF8F12EF60B4/SteamLibrary/steamapps/common/{folder}/logs/Client.txt")]
+    if os.name == "nt":
+        for d in ("C:", "D:", "E:", "F:"):
+            candidates.extend([
+                Path(f"{d}/Program Files (x86)/Steam/steamapps/common/{folder}/logs/Client.txt"),
+                Path(f"{d}/SteamLibrary/steamapps/common/{folder}/logs/Client.txt"),
+                Path(f"{d}/Program Files (x86)/Grinding Gear Games/{folder}/logs/Client.txt"),
+                Path(f"{d}/Grinding Gear Games/{folder}/logs/Client.txt"),
+            ])
+    else:
+        h = Path.home()
+        candidates.extend([
+            h / f".local/share/Steam/steamapps/common/{folder}/logs/Client.txt",
+            h / f".local/share/Steam/steamapps/compatdata/{app_id}/pfx/drive_c/Program Files (x86)/Grinding Gear Games/{folder}/logs/Client.txt",
+            h / f".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/{folder}/logs/Client.txt",
+        ])
+    for p in candidates:
+        if p.is_file():
+            cfg[key] = str(p)
+            try: CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception: pass
+            return str(p)
+    sys.exit(f"Файл Client.txt для {folder} не найден. Укажите \"{key}\" в {CONFIG_FILE}")
+
+log_path = find_client_log(poe2_mode)
+rx = re.compile(r"^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*?(?:You have entered (.+?)\.|Вы вошли в область (.+?)\.)")
+def fmt(s):
+    if s <= 0: return "н/д"
+    h, r = divmod(int(round(s)), 3600)
+    m, sec = divmod(r, 60)
+    return f"{h}ч {m:02d}м" if h else f"{m}м {sec:02d}с"
+heist_zones = {
+    "Bunker": "Бункер", "Underbelly": "Подбрюшье", "Mansion": "Особняк",
+    "Repository": "Хранилище", "Tunnels": "Туннели", "Laboratory": "Лаборатория",
+    "Prohibited Library": "Библиотека", "Smuggler's Den": "Логово", "Records Office": "Архив",
+    "Бункер": "Бункер", "Подбрюшье": "Подбрюшье", "Особняк": "Особняк",
+    "Хранилище": "Хранилище", "Туннели": "Туннели", "Лаборатория": "Лаборатория",
+    "Запретная библиотека": "Библиотека", "Логово контрабандистов": "Логово", "Архив": "Архив"
+}
+harbour = {"The Rogue Harbour", "Разбойничья гавань"}
+
+poe2_hubs = {
+    "The Ziggurat Encampment", "The Ardura Caravan", "Clearfell Encampment",
+    "Kingsmarch", "The Refuge", "Лагерь Зиккурата", "Караван Ардуры", "Лагерь у Просеки"
+}
+poe2_pinnacles = {
+    "The Burning Monolith", "Пылающий монолит", "Twisted Domain", "Искажённые владения",
+    "Crux of Nothingness", "Средоточие небытия", "The Simulacrum", "Симулякр",
+    "Iron Citadel", "Железная цитадель", "Copper Citadel", "Медная цитадель",
+    "Stone Citadel", "Каменная цитадель", "Vaal Temple", "Храм Ваал", "Paracosm", "Паракосм"
+}
+
+def stats_poe2():
+    runs, cur = [], "—"
+    with open(log_path, encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            m = rx.search(line)
+            if not m: continue
+            ts = datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S")
+            z = m.group(2) or m.group(3)
+            cur = z
+            if not start_date or ts.date() >= start_date: runs.append((ts, z))
+
+    sek_runs = sek_floors = chaos_runs = chaos_rooms = pin_cnt = map_cnt = 0
+    z_cnt = defaultdict(int)
+    map_rec, pin_rec, sek_rec = [], [], []
+    t_act = t_hub = 0.0
+    i = 0
+    while i < len(runs):
+        ts, z = runs[i]
+        zl = z.lower()
+        is_hub = (z in poe2_hubs) or ("hideout" in zl) or ("убежище" in zl)
+        if is_hub:
+            if i + 1 < len(runs):
+                hd = (runs[i+1][0] - ts).total_seconds()
+                if 1 <= hd <= 900: t_hub += hd
+            i += 1; continue
+
+        dur = (runs[i+1][0] - ts).total_seconds() if i + 1 < len(runs) else 0
+        valid_d = 20 <= dur <= 1800
+        if valid_d: t_act += dur
+
+        if "sekhema" in zl or "сехем" in zl:
+            sek_floors += 1
+            if i == 0 or ("sekhema" not in runs[i-1][1].lower() and "сехем" not in runs[i-1][1].lower()):
+                sek_runs += 1
+            if valid_d: sek_rec.append((dur, z, ts))
+            z_cnt["Испытание Сехем"] += 1
+        elif "trial of chaos" in zl or "испытание хаоса" in zl:
+            chaos_rooms += 1
+            if i == 0 or ("chaos" not in runs[i-1][1].lower() and "хаос" not in runs[i-1][1].lower()):
+                chaos_runs += 1
+            z_cnt["Испытание Хаоса"] += 1
+        elif z in poe2_pinnacles or "citadel" in zl or "цитадель" in zl:
+            pin_cnt += 1
+            if valid_d: pin_rec.append((dur, z, ts))
+            z_cnt[z] += 1
+        else:
+            map_cnt += 1
+            if valid_d: map_rec.append((dur, z, ts))
+            z_cnt[z] += 1
+        i += 1
+
+    tot = map_cnt + pin_cnt + sek_runs + chaos_runs
+    tf = t_act + t_hub
+    return {
+        "cur": cur, "maps": map_cnt, "pins": pin_cnt,
+        "sek_r": sek_runs, "sek_f": sek_floors, "ch_r": chaos_runs, "ch_f": chaos_rooms,
+        "am": sum(x[0] for x in map_rec)/len(map_rec) if map_rec else 0,
+        "bm": min(map_rec, key=itemgetter(0)) if map_rec else None,
+        "as": sum(x[0] for x in sek_rec)/len(sek_rec) if sek_rec else 0,
+        "rph": tot/(tf/3600) if tf > 0 else 0,
+        "ta": t_act, "th": t_hub, "sh": (t_act/tf*100) if tf > 0 else 0, "zc": z_cnt
+    }
+def stats_poe1():
+    runs, cur = [], "—"
+    with open(log_path, encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            m = rx.search(line)
+            if not m: continue
+            ts = datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S")
+            z = m.group(2) or m.group(3)
+            cur = heist_zones.get(z, z)
+            if not start_date or ts.date() >= start_date: runs.append((ts, z))
+
+    c_cnt = bp_cnt = w_cnt = 0
+    z_cnt = defaultdict(int)
+    c_rec, w_rec, h_rec = [], [], []
+    t_heist = t_harb = 0.0
+    i = 0
+    while i < len(runs):
+        ts, z = runs[i]
+        if z in harbour and 0 < i < len(runs) - 1:
+            if runs[i-1][1] in heist_zones or runs[i+1][1] in heist_zones:
+                hd = (runs[i+1][0] - ts).total_seconds()
+                if 1 <= hd <= 900: t_harb += hd; h_rec.append(hd)
+        if z in heist_zones:
+            nz = heist_zones[z]
+            wings, last_t, w_durs = 1, ts, []
+            if i + 1 < len(runs):
+                d = (runs[i+1][0] - ts).total_seconds()
+                if 25 <= d <= 1200: w_durs.append((d, nz, ts)); t_heist += d
+            j = i + 1
+            while j < len(runs):
+                nts, nz2 = runs[j]
+                if nz2 in harbour:
+                    if j + 1 < len(runs) and runs[j+1][1] in heist_zones:
+                        hd = (runs[j+1][0] - nts).total_seconds()
+                        if 1 <= hd <= 900: t_harb += hd; h_rec.append(hd)
+                    j += 1; continue
+                if nz2 in heist_zones and heist_zones[nz2] == nz and (nts - last_t).total_seconds() < 1500:
+                    wings += 1; last_t = nts
+                    if j + 1 < len(runs):
+                        wd = (runs[j+1][0] - nts).total_seconds()
+                        if 25 <= wd <= 1200: w_durs.append((wd, nz, nts)); t_heist += wd
+                    j += 1
+                else: break
+            if wings > 1: bp_cnt += 1; w_cnt += wings; w_rec.extend(w_durs)
+            else: c_cnt += 1; c_rec.extend(w_durs)
+            z_cnt[nz] += wings; i = j
+        else: i += 1
+
+    tot = c_cnt + w_cnt
+    tf = t_heist + t_harb
+    return {
+        "cur": cur, "c": c_cnt, "bp": bp_cnt, "w": w_cnt,
+        "ac": sum(x[0] for x in c_rec)/len(c_rec) if c_rec else 0,
+        "bc": min(c_rec, key=itemgetter(0)) if c_rec else None,
+        "aw": sum(x[0] for x in w_rec)/len(w_rec) if w_rec else 0,
+        "bw": min(w_rec, key=itemgetter(0)) if w_rec else None,
+        "rph": tot/(tf/3600) if tf > 0 else 0,
+        "th": t_heist, "tb": t_harb,
+        "ah": sum(h_rec)/len(h_rec) if h_rec else 0,
+        "sh": (t_heist/tf*100) if tf > 0 else 0, "zc": z_cnt
+    }
+
+def out_text():
+    if poe2_mode:
+        s = stats_poe2()
+        bm = fmt(s["bm"][0]) if s["bm"] else "н/д"
+        return (
+            f"Зона: {s['cur'][:24]}\n"
+            f"──────────────────────────────\n"
+            f"Сехем:     {s['sek_r']} заб. / {s['sek_f']} эт. (ср. {fmt(s['as'])})\n"
+            f"Хаос:      {s['ch_r']} заб. / {s['ch_f']} комн.\n"
+            f"Пинаклы:   {s['pins']} | Карты: {s['maps']} (ср. {fmt(s['am'])})\n"
+            f"Рекорд к.: {bm}\n"
+            f"──────────────────────────────\n"
+            f"Темп:      {s['rph']:.1f} забегов/час\n"
+            f"В забегах: {fmt(s['ta'])} ({s['sh']:.0f}%) | Хаб: {fmt(s['th'])}"
+        )
+    s = stats_poe1()
+    bc = fmt(s["bc"][0]) if s["bc"] else "н/д"
+    bw = fmt(s["bw"][0]) if s["bw"] else "н/д"
+    return (
+        f"Зона: {s['cur'][:24]}\n"
+        f"──────────────────────────────\n"
+        f"Контракты: {s['c']} (ср. {fmt(s['ac'])})\n"
+        f"Чертежи:   {s['bp']} / {s['w']} кр. (ср. {fmt(s['aw'])})\n"
+        f"Рекорды:   контр. {bc} | кр. {bw}\n"
+        f"──────────────────────────────\n"
+        f"Темп:      {s['rph']:.1f} забегов/час\n"
+        f"В забегах: {fmt(s['th'])} ({s['sh']:.0f}%)\n"
+        f"В Гавани:  {fmt(s['tb'])} (стоп {fmt(s['ah'])})"
+    )
+
+if overlay_mode:
+    import tkinter as tk
+    r = tk.Tk()
+    r.overrideredirect(True); r.attributes("-topmost", True)
+    try: r.attributes("-alpha", 0.85)
+    except Exception: pass
+    r.configure(bg="#121417", highlightbackground="#3a3f4b", highlightthickness=1); r.geometry("+20+120")
+    d = {"x": 0, "y": 0}
+    h = tk.Frame(r, bg="#1e2229", cursor="fleur"); h.pack(fill="x")
+    title = f" POE 2 TRACKER v{VERSION}" if poe2_mode else f" HEIST TRACKER v{VERSION}"
+    t = tk.Label(h, text=title, bg="#1e2229", fg="#dfcf99", font=("Sans", 9, "bold")); t.pack(side="left", padx=4)
+    x = tk.Label(h, text="✕", bg="#1e2229", fg="#8b949e", font=("Sans", 9, "bold"), cursor="hand2"); x.pack(side="right", padx=6)
+    x.bind("<Button-1>", lambda e: r.destroy())
+    for w in (h, t):
+        w.bind("<Button-1>", lambda e: d.update(x=e.x, y=e.y))
+        w.bind("<B1-Motion>", lambda e: r.geometry(f"+{r.winfo_x()+e.x-d['x']}+{r.winfo_y()+e.y-d['y']}"))
+    lbl = tk.Label(r, text="...", bg="#121417", fg="#e6e6e6", justify="left", anchor="w", font=("Monospace", 9), padx=8, pady=6)
+    lbl.pack()
+    st = {"m": 0, "s": 0}
+    def upd():
+        fs = os.stat(log_path)
+        if fs.st_mtime != st["m"] or fs.st_size != st["s"]:
+            st["m"], st["s"] = fs.st_mtime, fs.st_size
+            lbl.config(text=out_text())
+        r.after(1500, upd)
+    upd(); r.mainloop()
+elif live_mode:
+    lm = ls = 0
+    try:
+        while True:
+            fs = os.stat(log_path)
+            if fs.st_mtime != lm or fs.st_size != ls:
+                lm, ls = fs.st_mtime, fs.st_size
+                sys.stdout.write("\033[H\033[J" + out_text() + "\n")
+            time.sleep(1.5)
+    except KeyboardInterrupt: pass
+else:
+    print(out_text() + "\n\nТоп локаций:")
+    zc = (stats_poe2() if poe2_mode else stats_poe1())["zc"]
+    for z, c in sorted(zc.items(), key=itemgetter(1), reverse=True)[:15]: print(f"  {z}: {c}")

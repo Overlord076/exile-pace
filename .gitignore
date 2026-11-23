@@ -1,0 +1,9 @@
+# Сборка и временные файлы Python / PyInstaller
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.spec
+
+# Локальные настройки пользователя с путями к Client.txt
+config.json
