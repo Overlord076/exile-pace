@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.13.3"
+VERSION = "1.13.4"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -502,15 +502,17 @@ def stats_poe1():
         "sh": (t_heist/tf*100) if tf > 0 else 0, "zc": z_cnt
     }
 
-def out_text():
+def out_text(b_override=None, u_override=None):
+    _bm = blight_mode if b_override is None else b_override
+    _um = ultimatum_mode if u_override is None else u_override
     try:
         fs = os.stat(log_path)
-        ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, ultimatum_mode, start_date, end_date)
+        ckey = (log_path, fs.st_mtime, fs.st_size, _bm, poe2_mode, _um, start_date, end_date)
         if ckey in _render_cache:
             return _render_cache[ckey]
     except Exception:
         ckey = None
-    if not poe2_mode and blight_mode:
+    if not poe2_mode and _bm:
         s = stats_blight()
         bb = fmt(s["bb"]) if s["bb"] else "н/д"
         br = fmt(s["br"]) if s["br"] else "н/д"
@@ -529,7 +531,7 @@ def out_text():
         return chr(10).join(lines)
     if poe2_mode:
         s = stats_poe2()
-        if ultimatum_mode:
+        if _um:
             bc = fmt(s["bc"][0]) if s["bc"] else "н/д"
             _res = (
                 f"Зона: {s['cur'][:24]}\n"
@@ -645,23 +647,16 @@ if __name__ == "__main__":
     import threading as _bg_th
 
     def render_async(force_prewarm=False):
+        snap_b, snap_u = blight_mode, ultimatum_mode
         def _job():
             try:
-                cur_txt = out_text()
+                cur_txt = out_text(snap_b, snap_u)
                 r.after(0, lambda: lbl.config(text=cur_txt))
                 if force_prewarm:
                     if poe2_mode:
-                        global ultimatum_mode
-                        orig = ultimatum_mode
-                        ultimatum_mode = not orig
-                        out_text()
-                        ultimatum_mode = orig
+                        out_text(snap_b, not snap_u)
                     else:
-                        global blight_mode
-                        orig = blight_mode
-                        blight_mode = not orig
-                        out_text()
-                        blight_mode = orig
+                        out_text(not snap_b, snap_u)
             except Exception as e:
                 logger.error(f"Ошибка фонового рендера: {e}")
         _bg_th.Thread(target=_job, daemon=True).start()
@@ -685,7 +680,10 @@ if __name__ == "__main__":
             pass
         render_async()
 
-    sw.bind("<Button-1>", switch_mode)
+    def on_sw_click(e):
+        if 0 <= e.x <= sw.winfo_width() and 0 <= e.y <= sw.winfo_height():
+            switch_mode()
+    sw.bind("<ButtonRelease-1>", on_sw_click)
     def start_drag(e):
         d.update(rx=e.x_root, ry=e.y_root, wx=r.winfo_x(), wy=r.winfo_y())
 
