@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.10.0"
+VERSION = "1.10.4"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -146,12 +146,31 @@ if any(a.strip().lower() in ("--version", "-v", "version") for a in sys.argv[1:]
 poe2_mode = any(a.strip().lower() in ("--poe2", "-2", "poe2") for a in sys.argv[1:])
 live_mode = any(a.strip().lower() in ("--live", "-l", "live") for a in sys.argv[1:])
 overlay_mode = any(a.strip().lower() in ("--overlay", "-o", "overlay") for a in sys.argv[1:])
-start_date = None
+LEAGUES_POE1 = [
+    ("3.30 Covens (Текущая)", date(2026, 11, 13), None, "3.30"),
+    ("3.29 Allflame (24.07–10.11.26)", date(2026, 7, 24), date(2026, 11, 10), "3.29"),
+    ("3.28 Mirage (06.03–20.07.26)", date(2026, 3, 6), date(2026, 7, 20), "3.28"),
+    ("3.27 Keepers (31.10.25–02.03.26)", date(2025, 10, 31), date(2026, 3, 2), "3.27"),
+    ("3.26 Mercenaries (13.06–27.10.25)", date(2025, 6, 13), date(2025, 10, 27), "3.26"),
+    ("3.25 Settlers (26.07.24–09.06.25)", date(2024, 7, 26), date(2025, 6, 9), "3.25"),
+]
+LEAGUES_POE2 = [
+    ("0.5.0 Runes of Aldur (Текущая)", date(2026, 5, 29), None, "0.5.0"),
+    ("0.4.0 Fate of the Vaal (12.12.25–25.05.26)", date(2025, 12, 12), date(2026, 5, 25), "0.4.0"),
+    ("0.3.0 The Third Edict (29.08–08.12.25)", date(2025, 8, 29), date(2025, 12, 8), "0.3.0"),
+    ("0.2.0 Dawn of the Hunt (04.04–26.08.25)", date(2025, 4, 4), date(2025, 8, 26), "0.2.0"),
+]
+
+league_mode = any(a.strip().lower() in ("league", "--league", "лига") for a in sys.argv[1:])
+cur_league = (LEAGUES_POE2[0] if poe2_mode else LEAGUES_POE1[0]) if league_mode else None
+start_date = cur_league[1] if cur_league else None
+end_date = cur_league[2] if cur_league else None
 
 for a in sys.argv[1:]:
     a = a.strip().lower()
     if a in ("--poe2", "-2", "poe2", "--blight", "-b", "blight", "--live", "-l", "live", "--overlay", "-o", "overlay"): continue
-    if a == "today": start_date = date.today()
+    if a in ("league", "--league", "лига"): pass
+    elif a == "today": start_date = date.today()
     else:
         for f in ("%Y-%m-%d", "%d.%m.%Y", "%Y/%m/%d"):
             try: start_date = datetime.strptime(a, f).date(); break
@@ -251,18 +270,18 @@ def stats_blight():
                 ts = datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S")
                 z = m.group(2) or m.group(3)
                 cur = z
-                if not start_date or ts.date() >= start_date: events.append(("zone", ts, z))
+                if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date): events.append(("zone", ts, z))
                 continue
             cm = cassia_rx.search(line)
             if cm:
                 ts = datetime.strptime(cm.group(1), "%Y/%m/%d %H:%M:%S")
-                if not start_date or ts.date() >= start_date: events.append(("cassia", ts, cm.group(2)))
+                if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date): events.append(("cassia", ts, cm.group(2)))
                 continue
             om = oil_rx.search(line)
             if om and len(line) >= 19:
                 try:
                     ts = datetime.strptime(line[:19], "%Y/%m/%d %H:%M:%S")
-                    if not start_date or ts.date() >= start_date: oils[om.group(1).title()] += 1
+                    if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date): oils[om.group(1).title()] += 1
                 except Exception: pass
     bl_m = rav_m = enc = wins = fails = 0
     z_cnt = defaultdict(int)
@@ -309,7 +328,7 @@ def stats_poe2():
             ts = datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S")
             z = m.group(2) or m.group(3)
             cur = z
-            if not start_date or ts.date() >= start_date: runs.append((ts, z))
+            if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date): runs.append((ts, z))
 
     sek_runs = sek_floors = chaos_runs = chaos_rooms = pin_cnt = map_cnt = 0
     z_cnt = defaultdict(int)
@@ -371,7 +390,7 @@ def stats_poe1():
             ts = datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S")
             z = m.group(2) or m.group(3)
             cur = heist_zones.get(z, z)
-            if not start_date or ts.date() >= start_date: runs.append((ts, z))
+            if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date): runs.append((ts, z))
 
     c_cnt = bp_cnt = w_cnt = 0
     z_cnt = defaultdict(int)
@@ -427,7 +446,7 @@ def stats_poe1():
 def out_text():
     try:
         fs = os.stat(log_path)
-        ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, start_date)
+        ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, start_date, end_date)
         if ckey in _render_cache:
             return _render_cache[ckey]
     except Exception:
@@ -493,7 +512,9 @@ if __name__ == "__main__":
     d = {"x": 0, "y": 0}
     h = tk.Frame(r, bg="#1e2229", cursor="fleur"); h.pack(fill="x")
     def get_title():
-        return f" EXILEPACE: BLIGHT v{VERSION}" if blight_mode else (f" EXILEPACE: POE 2 v{VERSION}" if poe2_mode else f" EXILEPACE: HEIST v{VERSION}")
+        base = f" EXILEPACE: BLIGHT v{VERSION}" if blight_mode else (f" EXILEPACE: POE 2 v{VERSION}" if poe2_mode else f" EXILEPACE: HEIST v{VERSION}")
+        tag = f" [{cur_league[3]}]" if cur_league else (" [СЕГОДНЯ]" if start_date == date.today() else (" [ВСЁ]" if start_date is None else f" [{start_date:%d.%m}]"))
+        return base + tag
 
     def get_btn_label():
         return "⇄ HEIST" if (blight_mode or poe2_mode) else "⇄ BLIGHT"
@@ -526,11 +547,14 @@ if __name__ == "__main__":
         _bg_th.Thread(target=_job, daemon=True).start()
 
     def switch_mode(event=None):
-        global blight_mode, poe2_mode, log_path
+        global blight_mode, poe2_mode, log_path, start_date, end_date, cur_league
         if poe2_mode:
             poe2_mode = False
             blight_mode = False
             log_path = find_client_log(False)
+            if cur_league:
+                cur_league = LEAGUES_POE1[0]
+                start_date, end_date = cur_league[1], cur_league[2]
         else:
             blight_mode = not blight_mode
         t.config(text=get_title())
@@ -538,7 +562,7 @@ if __name__ == "__main__":
         # Если в кэше уже есть готовый текст — ставим мгновенно без ожидания диска
         try:
             fs = os.stat(log_path)
-            ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, start_date)
+            ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, start_date, end_date)
             if ckey in _render_cache:
                 lbl.config(text=_render_cache[ckey])
                 return
@@ -565,67 +589,88 @@ if __name__ == "__main__":
             logger.error(f"Ошибка обновления оверлея: {e}", exc_info=True)
             lbl.config(text=f"Ошибка чтения лога (см. tracker.log):\n{e}")
         r.after(1500, upd)
+
     def setup_tray():
         try:
             import threading, pystray
             from PIL import Image
             ico_file = APP_DIR / "icon.png"
             if not ico_file.is_file():
+                logger.warning(f"Иконка не найдена: {ico_file}")
                 return
             img = Image.open(ico_file)
             visible = {"state": True}
 
             def toggle_overlay(icon, item):
                 if visible["state"]:
-                    r.after(0, r.withdraw)
-                    visible["state"] = False
+                    r.after(0, r.withdraw); visible["state"] = False
                 else:
-                    r.after(0, r.deiconify)
-                    visible["state"] = True
-
-            def quit_app(icon, item):
-                icon.stop()
-                r.after(0, r.destroy)
-
-            def run_upd_from_tray(icon, item):
-                if perform_self_update():
-                    icon.stop()
-                    r.after(0, r.destroy)
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                    r.after(0, r.deiconify); visible["state"] = True
 
             def open_log_file(icon, item):
                 try:
-                    if os.name == "nt":
-                        os.startfile(str(LOG_FILE))
+                    if os.name == "nt": os.startfile(str(LOG_FILE))
                     else:
                         import subprocess
                         subprocess.Popen(["xdg-open", str(LOG_FILE)])
                 except Exception as e:
                     logger.error(f"Не удалось открыть лог: {e}")
 
+            def run_upd_from_tray(icon, item):
+                if perform_self_update():
+                    icon.stop(); r.after(0, r.destroy)
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+            def quit_app(icon, item):
+                icon.stop(); r.after(0, r.destroy)
+
+            def apply_filter(lg_obj, s_dt, e_dt):
+                def _apply(icon, item):
+                    def _ui():
+                        global league_mode, cur_league, start_date, end_date
+                        cur_league = lg_obj
+                        league_mode = lg_obj is not None
+                        start_date, end_date = s_dt, e_dt
+                        t.config(text=get_title())
+                        lbl.config(text="Загрузка...")
+                        render_async(force_prewarm=True)
+                    r.after(0, _ui)
+                return _apply
+
+            def build_period_items():
+                items = [
+                    pystray.MenuItem("Сегодня", apply_filter(None, date.today(), None), checked=lambda item: (cur_league is None and start_date == date.today()), radio=True),
+                    pystray.MenuItem("Всё время", apply_filter(None, None, None), checked=lambda item: (cur_league is None and start_date is None), radio=True),
+                    pystray.Menu.SEPARATOR,
+                ]
+                for lg in (LEAGUES_POE2 if poe2_mode else LEAGUES_POE1):
+                    items.append(
+                        pystray.MenuItem(
+                            lg[0],
+                            apply_filter(lg, lg[1], lg[2]),
+                            checked=lambda item, target=lg: cur_league == target,
+                            radio=True
+                        )
+                    )
+                return items
+
+            period_menu = pystray.Menu(lambda: build_period_items())
+
             menu = pystray.Menu(
                 pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
+                pystray.MenuItem("Период / Лига", period_menu),
                 pystray.MenuItem("Переключить режим (Heist / Blight)", lambda icon, item: r.after(0, switch_mode)),
                 pystray.MenuItem("Открыть лог отладки", open_log_file),
                 pystray.MenuItem("Проверить обновления", run_upd_from_tray),
                 pystray.MenuItem("Выход", quit_app)
             )
-            tray = pystray.Icon("poe_tracker", img, "PoE Tracker", menu)
+            tray = pystray.Icon("exile_pace", img, "ExilePace", menu)
             threading.Thread(target=tray.run, daemon=True).start()
+            logger.info("Значок Разбойничьего жетона запущен в трее")
         except Exception as e:
-            logger.warning(f"Трей не инициализирован: {e}")
+            logger.warning(f"Ошибка трея: {e}", exc_info=True)
 
-    def bg_update_check():
-        try:
-            latest, _ = check_latest_release()
-            if parse_ver(latest) > parse_ver(VERSION):
-                r.after(0, lambda: t.config(text=f"{get_title()} [Новая v{latest}!]"))
-        except Exception as e:
-            logger.warning(f"Трей не инициализирован: {e}")
-
-    import threading as _th
-    _th.Thread(target=bg_update_check, daemon=True).start()
-    r.after(400, setup_tray)
+    setup_tray()
     upd(); r.mainloop()
   elif live_mode:
     lm = ls = 0
