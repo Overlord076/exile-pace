@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.12.2"
+VERSION = "1.13.0"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -580,18 +580,29 @@ if __name__ == "__main__":
     try: r.attributes("-alpha", 0.85)
     except Exception: pass
     r.configure(bg="#121417", highlightbackground="#3a3f4b", highlightthickness=1)
-    def load_overlay_pos():
+    def read_cfg():
         try:
-            if CONFIG_FILE.exists():
-                cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-                pos = cfg.get("overlay_pos_poe2" if poe2_mode else "overlay_pos_poe1")
-                if isinstance(pos, list) and len(pos) == 2:
-                    px, py = int(pos[0]), int(pos[1])
-                    sw_w, sw_h = r.winfo_screenwidth(), r.winfo_screenheight()
-                    if 0 <= px <= max(0, sw_w - 80) and 0 <= py <= max(0, sw_h - 40):
-                        return f"+{px}+{py}"
-        except Exception:
-            pass
+            if CONFIG_FILE.exists(): return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except Exception: pass
+        return {}
+
+    def write_cfg(upd):
+        try:
+            c = read_cfg(); c.update(upd)
+            CONFIG_FILE.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception: pass
+
+    _ic = read_cfg()
+    ui_state = {"font_size": int(_ic.get("font_size", 9)), "alpha": float(_ic.get("alpha", 0.85))}
+    try: r.attributes("-alpha", ui_state["alpha"])
+    except Exception: pass
+
+    def load_overlay_pos():
+        pos = _ic.get("overlay_pos_poe2" if poe2_mode else "overlay_pos_poe1")
+        if isinstance(pos, list) and len(pos) == 2:
+            px, py = int(pos), int(pos)
+            if 0 <= px <= max(0, r.winfo_screenwidth()-80) and 0 <= py <= max(0, r.winfo_screenheight()-40):
+                return f"+{px}+{py}"
         return "+20+120"
 
     def save_overlay_pos(event=None):
@@ -621,10 +632,10 @@ if __name__ == "__main__":
             return "⇄ SEKHEMAS" if ultimatum_mode else "⇄ ULTIMATUM"
         return "⇄ HEIST" if blight_mode else "⇄ BLIGHT"
 
-    t = tk.Label(h, text=get_title(), bg="#1e2229", fg="#dfcf99", font=("Sans", 9, "bold"))
+    t = tk.Label(h, text=get_title(), bg="#1e2229", fg="#dfcf99", font=("Sans", ui_state["font_size"], "bold"))
     t.pack(side="left", padx=4)
 
-    x = tk.Label(h, text="✕", bg="#1e2229", fg="#8b949e", font=("Sans", 9, "bold"), cursor="hand2")
+    x = tk.Label(h, text="✕", bg="#1e2229", fg="#8b949e", font=("Sans", ui_state["font_size"], "bold"), cursor="hand2")
     x.pack(side="right", padx=6)
     x.bind("<Button-1>", lambda e: r.destroy())
 
@@ -679,7 +690,7 @@ if __name__ == "__main__":
         w.bind("<Button-1>", lambda e: d.update(x=e.x, y=e.y))
         w.bind("<B1-Motion>", lambda e: r.geometry(f"+{r.winfo_x()+e.x-d['x']}+{r.winfo_y()+e.y-d['y']}"))
         w.bind("<ButtonRelease-1>", save_overlay_pos)
-    lbl = tk.Label(r, text="...", bg="#121417", fg="#e6e6e6", justify="left", anchor="w", font=("Monospace", 9), padx=8, pady=6)
+    lbl = tk.Label(r, text="...", bg="#121417", fg="#e6e6e6", justify="left", anchor="w", font=("Monospace", ui_state["font_size"]), padx=8, pady=6)
     lbl.pack()
     st = {"m": 0, "s": 0}
     def upd():
@@ -761,14 +772,58 @@ if __name__ == "__main__":
 
             period_menu = pystray.Menu(lambda: build_period_items())
 
+            def set_fs(sz):
+                def _f(icon, item):
+                    def _u():
+                        ui_state["font_size"] = sz
+                        t.config(font=("Sans", sz, "bold")); lbl.config(font=("Monospace", sz))
+                        write_cfg({"font_size": sz})
+                    r.after(0, _u)
+                return _f
+
+            def set_al(al):
+                def _f(icon, item):
+                    def _u():
+                        ui_state["alpha"] = al
+                        try: r.attributes("-alpha", al)
+                        except Exception: pass
+                        write_cfg({"alpha": al})
+                    r.after(0, _u)
+                return _f
+
+            def open_cfg(icon, item):
+                if not CONFIG_FILE.exists(): write_cfg({})
+                if os.name == "nt": os.startfile(str(CONFIG_FILE))
+                else: import subprocess; subprocess.Popen(["xdg-open", str(CONFIG_FILE)])
+
+            font_m = pystray.Menu(
+                pystray.MenuItem("Мелкий (8)", set_fs(8), checked=lambda i: ui_state["font_size"] == 8, radio=True),
+                pystray.MenuItem("Обычный (9)", set_fs(9), checked=lambda i: ui_state["font_size"] == 9, radio=True),
+                pystray.MenuItem("Крупный (11)", set_fs(11), checked=lambda i: ui_state["font_size"] == 11, radio=True),
+                pystray.MenuItem("Огромный (13)", set_fs(13), checked=lambda i: ui_state["font_size"] == 13, radio=True),
+            )
+            alpha_m = pystray.Menu(
+                pystray.MenuItem("100%", set_al(1.0), checked=lambda i: abs(ui_state["alpha"] - 1.0) < 0.01, radio=True),
+                pystray.MenuItem("85%", set_al(0.85), checked=lambda i: abs(ui_state["alpha"] - 0.85) < 0.01, radio=True),
+                pystray.MenuItem("70%", set_al(0.70), checked=lambda i: abs(ui_state["alpha"] - 0.70) < 0.01, radio=True),
+                pystray.MenuItem("55%", set_al(0.55), checked=lambda i: abs(ui_state["alpha"] - 0.55) < 0.01, radio=True),
+            )
+            cfg_m = pystray.Menu(
+                pystray.MenuItem("Размер шрифта", font_m),
+                pystray.MenuItem("Прозрачность", alpha_m),
+                pystray.MenuItem("Сбросить позицию окна", lambda i, it: r.after(0, lambda: (r.geometry("+20+120"), save_overlay_pos()))),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Открыть config.json", open_cfg),
+                pystray.MenuItem("Открыть лог отладки", open_log_file),
+                pystray.MenuItem("Проверить обновления", run_upd_from_tray),
+            )
             sw_title = "Переключить режим (Сехем / Ультиматум)" if poe2_mode else "Переключить режим (Heist / Blight)"
             menu = pystray.Menu(
                 pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
-                pystray.MenuItem("Сбросить позицию окна", lambda icon, item: r.after(0, lambda: (r.geometry("+20+120"), save_overlay_pos()))),
                 pystray.MenuItem("Период / Лига", period_menu),
-                pystray.MenuItem(sw_title, lambda icon, item: r.after(0, switch_mode)),
-                pystray.MenuItem("Открыть лог отладки", open_log_file),
-                pystray.MenuItem("Проверить обновления", run_upd_from_tray),
+                pystray.MenuItem(sw_title, lambda i, it: r.after(0, switch_mode)),
+                pystray.MenuItem("Настройки", cfg_m),
+                pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Выход", quit_app)
             )
             tray = pystray.Icon("exile_pace", img, "ExilePace", menu)
