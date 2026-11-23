@@ -1,6 +1,6 @@
-# Author: Overlord076 | Created with AI assistance
+# Author: MuonSuzuki | Created with AI assistance
 VERSION = "1.0.0"
-AUTHOR = "Overlord076"
+AUTHOR = "MuonSuzuki"
 
 
 import json, os, re, sys, time
