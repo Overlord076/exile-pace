@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.15.2"
+VERSION = "1.15.3"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -249,7 +249,7 @@ heist_zones = {
     "Prohibited Library": "Библиотека", "Smuggler's Den": "Логово", "Records Office": "Архив",
     "Бункер": "Бункер", "Подбрюшье": "Подбрюшье", "Особняк": "Особняк",
     "Хранилище": "Хранилище", "Туннели": "Туннели", "Лаборатория": "Лаборатория",
-    "Запретная библиотека": "Библиотека", "Логово контрабандистов": "Логово", "Архив": "Архив"
+    "Запретная библиотека": "Библиотека", "Логово контрабандистов": "Логово", "Притон контрабандистов": "Логово", "Подполье": "Подбрюшье", "Референтура": "Архив", "Архив": "Архив"
 }
 harbour = {"The Rogue Harbour", "Разбойничья гавань"}
 
