@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.13.2"
+VERSION = "1.13.3"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -686,9 +686,15 @@ if __name__ == "__main__":
         render_async()
 
     sw.bind("<Button-1>", switch_mode)
+    def start_drag(e):
+        d.update(rx=e.x_root, ry=e.y_root, wx=r.winfo_x(), wy=r.winfo_y())
+
+    def do_drag(e):
+        r.geometry(f"+{d['wx'] + e.x_root - d['rx']}+{d['wy'] + e.y_root - d['ry']}")
+
     for w in (h, t):
-        w.bind("<Button-1>", lambda e: d.update(x=e.x, y=e.y))
-        w.bind("<B1-Motion>", lambda e: r.geometry(f"+{r.winfo_x()+e.x-d['x']}+{r.winfo_y()+e.y-d['y']}"))
+        w.bind("<Button-1>", start_drag)
+        w.bind("<B1-Motion>", do_drag)
         w.bind("<ButtonRelease-1>", save_overlay_pos)
     lbl = tk.Label(r, text="...", bg="#121417", fg="#e6e6e6", justify="left", anchor="w", font=("Monospace", ui_state["font_size"]), padx=8, pady=6)
     lbl.pack()
