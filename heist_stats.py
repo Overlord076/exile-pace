@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.15.6"
+VERSION = "1.16.2"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -149,7 +149,8 @@ if (_want_bg or _want_ov) and not _stay_fg:
 _lock_fp = None
 if any(a.strip().lower() in ("--overlay", "-o", "overlay") for a in sys.argv[1:]):
     try:
-        _lock_path = APP_DIR / (".lock_poe2" if any(a.strip().lower() in ("--poe2", "-2", "poe2") for a in sys.argv[1:]) else ".lock_poe1")
+        _is_p2 = any(a.strip().lower() in ("--poe2", "-2", "poe2") for a in sys.argv[1:])
+        _lock_path = APP_DIR / (".lock_poe2" if _is_p2 else ".lock_poe1")
         _lock_fp = open(_lock_path, "w")
         if os.name == "nt":
             import msvcrt
@@ -157,6 +158,8 @@ if any(a.strip().lower() in ("--overlay", "-o", "overlay") for a in sys.argv[1:]
         else:
             import fcntl
             fcntl.flock(_lock_fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _lock_fp.write(str(os.getpid()))
+        _lock_fp.flush()
     except Exception:
         print("ExilePace уже запущен в фоновом режиме (проверьте значок в трее).")
         sys.exit(0)
@@ -259,6 +262,16 @@ heist_zones = {
     "Breaking the Unbreakable": "Уник: Разрушение Нерушимого", "Разрушение Нерушимого": "Уник: Разрушение Нерушимого",
     "The Slaver King": "Уник: Король работорговцев", "Король работорговцев": "Уник: Король работорговцев"
 }
+heist_area_ids = {
+    "HeistBunker": "Бункер", "HeistSewers": "Подполье", "HeistMansion": "Особняк",
+    "HeistVault": "Хранилище", "HeistRobotTunnels": "Тоннели", "HeistDungeon": "Лаборатория",
+    "HeistLibrary": "Библиотека", "HeistSmugglersDen": "Логово", "HeistCourts": "Архив",
+    "HeistBoss_AdmiralDarnaw": "Уник: Смерть Дарно", "HeistBoss_TheTwins": "Уник: Близнецы",
+    "HeistBoss_Vox": "Уник: Разрушение Нерушимого", "HeistBoss_Nashta": "Уник: Сердце славы",
+    "HeistBoss_SlaverKing": "Уник: Король работорговцев"
+}
+gen_rx = re.compile(r'^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*?Generating level \d+ area "([^"]+)" with seed (\d+)')
+STATS_CACHE_FILE = APP_DIR / "stats_cache.json"
 harbour = {"The Rogue Harbour", "Разбойничья гавань"}
 
 poe2_hubs = {
@@ -495,76 +508,106 @@ def stats_poe2():
         "rph": tot/(tf/3600) if tf > 0 else 0,
         "ta": t_act, "th": t_hub, "sh": (t_act/tf*100) if tf > 0 else 0, "zc": z_cnt
     }
+def load_heist_events_cached(path):
+    events, offset, mtime = [], 0, 0.0
+    try:
+        st = os.stat(path); mtime = st.st_mtime
+        if STATS_CACHE_FILE.exists():
+            cd = json.loads(STATS_CACHE_FILE.read_text(encoding="utf-8"))
+            if cd.get("path") == str(path) and cd.get("offset", 0) <= st.st_size:
+                events, offset = cd.get("events", []), cd.get("offset", 0)
+                if offset == st.st_size: return events
+    except Exception: events, offset = [], 0
+    try:
+        with open(path, "rb") as fb:
+            fb.seek(offset); chunk = fb.read(); new_off = fb.tell()
+        for ln in chunk.decode("utf-8", errors="ignore").splitlines():
+            if "LOG FILE OPENING" in ln: events.append((ln[:19], "LOG_OPEN", "", "")); continue
+            gm = gen_rx.search(ln)
+            if gm: events.append((gm.group(1), "GEN", gm.group(2), gm.group(3))); continue
+            m = rx.search(ln)
+            if m: events.append((m.group(1), "ENTER", (m.group(2) or m.group(3)).strip(), ""))
+        try: STATS_CACHE_FILE.write_text(json.dumps({"path": str(path), "offset": new_off, "mtime": mtime, "events": events}, ensure_ascii=False), encoding="utf-8")
+        except Exception: pass
+    except Exception: pass
+    return events
+
+def map_heist_area(aid, zname):
+    if aid:
+        for pref, lbl in heist_area_ids.items():
+            if aid.startswith(pref): return lbl
+    return heist_zones.get(zname)
+
 def stats_poe1():
-    runs, cur = [], "—"
-    with open_log_fast(log_path) as f:
-        for line in f:
-            m = rx.search(line)
-            if not m: continue
-            ts = datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S")
-            z = m.group(2) or m.group(3)
-            cur = heist_zones.get(z, z)
-            if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date): runs.append((ts, z))
+    runs, cur, last_aid, last_seed, p_brk = [], "—", "", "", False
+    for ts_s, kind, val, extra in load_heist_events_cached(log_path):
+        if kind == "LOG_OPEN": p_brk = True; continue
+        if kind == "GEN": last_aid, last_seed = val, extra; continue
+        if kind == "ENTER":
+            try: ts = datetime.strptime(ts_s, "%Y/%m/%d %H:%M:%S")
+            except Exception: continue
+            nz = map_heist_area(last_aid, val)
+            cur = nz if nz else val
+            if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date):
+                runs.append((ts, val, last_aid, last_seed, p_brk))
+            p_brk = False
 
     c_cnt = bp_cnt = w_cnt = 0
-    z_cnt = defaultdict(int)
-    c_rec, w_rec, h_rec = [], [], []
-    t_heist = t_harb = 0.0
-    i = 0
+    z_cnt = defaultdict(int); c_rec, w_rec, h_rec = [], [], []; t_heist = t_harb = 0.0; i = 0
     while i < len(runs):
-        ts, z = runs[i]
+        ts, z, aid, seed, brk = runs[i]; nz = map_heist_area(aid, z)
         if z in harbour and 0 < i < len(runs) - 1:
-            if runs[i-1][1] in heist_zones or runs[i+1][1] in heist_zones:
-                hd = (runs[i+1][0] - ts).total_seconds()
+            p_ts, p_z, p_a, _, _ = runs[i-1]
+            n_ts, n_z, n_a, _, n_brk = runs[i+1]
+            if (map_heist_area(p_a, p_z) or map_heist_area(n_a, n_z)) and not n_brk:
+                hd = (n_ts - ts).total_seconds()
                 if 1 <= hd <= 900: t_harb += hd; h_rec.append(hd)
-        if z in heist_zones:
-            nz = heist_zones[z]
+        if nz:
             wings, last_t, w_durs = 1, ts, []
             if i + 1 < len(runs):
-                d = (runs[i+1][0] - ts).total_seconds()
-                if 25 <= d <= 1200: w_durs.append((d, nz, ts)); t_heist += d
-            j = i + 1
+                nx_ts, _, _, _, nx_brk = runs[i+1]
+                if not nx_brk:
+                    d = (nx_ts - ts).total_seconds()
+                    if 35 <= d <= 1200: w_durs.append((d, nz, ts)); t_heist += d
+            z_cnt[nz] += 1; j = i + 1
             while j < len(runs):
-                nts, nz2 = runs[j]
-                if nz2 in harbour:
-                    if j + 1 < len(runs) and runs[j+1][1] in heist_zones:
-                        hd = (runs[j+1][0] - nts).total_seconds()
-                        if 1 <= hd <= 900: t_harb += hd; h_rec.append(hd)
-                    j += 1; continue
-                if nz2 in heist_zones and heist_zones[nz2] == nz and (nts - last_t).total_seconds() < 2700:
-                    wings += 1; last_t = nts
+                nts, nzone, naid, nseed, nbrk = runs[j]
+                if nbrk: break
+                nnz = map_heist_area(naid, nzone)
+                if nzone in harbour:
                     if j + 1 < len(runs):
-                        wd = (runs[j+1][0] - nts).total_seconds()
-                        if 25 <= wd <= 1200: w_durs.append((wd, nz, nts)); t_heist += wd
-                    j += 1
+                        ats, azone, aaid, aseed, abrk = runs[j+1]
+                        anz = map_heist_area(aaid, azone); hp = (ats - nts).total_seconds()
+                        if not abrk and anz and (ats - last_t).total_seconds() < 2700 and (hp <= 55 or anz == nz):
+                            if 1 <= hp <= 900: t_harb += hp; h_rec.append(hp)
+                            wings += 1; z_cnt[anz] += 1
+                            if j + 2 < len(runs):
+                                e_ts, _, _, _, e_brk = runs[j+2]
+                                if not e_brk:
+                                    wd = (e_ts - ats).total_seconds()
+                                    if 35 <= wd <= 1200: w_durs.append((wd, anz, ats)); t_heist += wd
+                            last_t = ats; j += 2; continue
+                    break
+                elif nnz and (nts - last_t).total_seconds() < 2700:
+                    wings += 1; z_cnt[nnz] += 1
+                    if j + 1 < len(runs):
+                        e_ts, _, _, _, e_brk = runs[j+1]
+                        if not e_brk:
+                            wd = (e_ts - nts).total_seconds()
+                            if 35 <= wd <= 1200: w_durs.append((wd, nnz, nts)); t_heist += wd
+                    last_t = nts; j += 1; continue
                 else: break
             if wings > 1: bp_cnt += 1; w_cnt += wings; w_rec.extend(w_durs)
             else: c_cnt += 1; c_rec.extend(w_durs)
-            z_cnt[nz] += wings; i = j
+            i = j
         else: i += 1
 
     global _active_zone_start
-    if not poe2_mode and not blight_mode:
-        if runs:
-            lts, lz = runs[-1]
-            lzl = lz.lower()
-            if lz not in harbour and "hideout" not in lzl and "убежище" not in lzl and (datetime.now() - lts).total_seconds() <= 1800:
-                _active_zone_start = lts
-            else:
-                _active_zone_start = None
-    tot = c_cnt + w_cnt
-    tf = t_heist + t_harb
-    return {
-        "cur": cur, "c": c_cnt, "bp": bp_cnt, "w": w_cnt,
-        "ac": sum(x[0] for x in c_rec)/len(c_rec) if c_rec else 0,
-        "bc": min(c_rec, key=itemgetter(0)) if c_rec else None,
-        "aw": sum(x[0] for x in w_rec)/len(w_rec) if w_rec else 0,
-        "bw": min(w_rec, key=itemgetter(0)) if w_rec else None,
-        "rph": tot/(tf/3600) if tf > 0 else 0,
-        "th": t_heist, "tb": t_harb,
-        "ah": sum(h_rec)/len(h_rec) if h_rec else 0,
-        "sh": (t_heist/tf*100) if tf > 0 else 0, "zc": z_cnt
-    }
+    if not poe2_mode and not blight_mode and runs:
+        lts, lz, laid, _, _ = runs[-1]
+        _active_zone_start = lts if (map_heist_area(laid, lz) and (datetime.now() - lts).total_seconds() <= 1800) else None
+    tot = c_cnt + w_cnt; tf = t_heist + t_harb
+    return {"cur": cur, "c": c_cnt, "bp": bp_cnt, "w": w_cnt, "ac": sum(x[0] for x in c_rec)/len(c_rec) if c_rec else 0, "bc": min(c_rec, key=itemgetter(0)) if c_rec else None, "aw": sum(x[0] for x in w_rec)/len(w_rec) if w_rec else 0, "bw": min(w_rec, key=itemgetter(0)) if w_rec else None, "ah": sum(h_rec)/len(h_rec) if h_rec else 0, "rph": tot/(tf/3600) if tf > 0 else 0, "th": t_heist, "tb": t_harb, "sh": (t_heist/tf*100) if tf > 0 else 0, "zc": z_cnt}
 
 def out_text(b_override=None, u_override=None):
     _bm = blight_mode if b_override is None else b_override
