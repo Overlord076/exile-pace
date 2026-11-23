@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.11.0"
+VERSION = "1.12.0"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -146,6 +146,7 @@ if any(a.strip().lower() in ("--version", "-v", "version") for a in sys.argv[1:]
 poe2_mode = any(a.strip().lower() in ("--poe2", "-2", "poe2") for a in sys.argv[1:])
 live_mode = any(a.strip().lower() in ("--live", "-l", "live") for a in sys.argv[1:])
 overlay_mode = any(a.strip().lower() in ("--overlay", "-o", "overlay") for a in sys.argv[1:])
+ultimatum_mode = any(a.strip().lower() in ("--ultimatum", "--chaos", "ultimatum", "chaos") for a in sys.argv[1:])
 LEAGUES_POE1 = [
     ("3.30 Covens (Текущая)", date(2026, 11, 13), None, "3.30"),
     ("3.29 Allflame (24.07–10.11.26)", date(2026, 7, 24), date(2026, 11, 10), "3.29"),
@@ -169,7 +170,7 @@ end_date = cur_league[2] if cur_league else None
 
 for a in sys.argv[1:]:
     a = a.strip().lower()
-    if a in ("--poe2", "-2", "poe2", "--blight", "-b", "blight", "--live", "-l", "live", "--overlay", "-o", "overlay"): continue
+    if a in ("--poe2", "-2", "poe2", "--blight", "-b", "blight", "--ultimatum", "--chaos", "ultimatum", "chaos", "--live", "-l", "live", "--overlay", "-o", "overlay"): continue
     if a in ("league", "--league", "лига"): pass
     elif a == "today": start_date = date.today()
     else:
@@ -497,7 +498,7 @@ def stats_poe1():
 def out_text():
     try:
         fs = os.stat(log_path)
-        ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, start_date, end_date)
+        ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, ultimatum_mode, start_date, end_date)
         if ckey in _render_cache:
             return _render_cache[ckey]
     except Exception:
@@ -521,19 +522,30 @@ def out_text():
         return chr(10).join(lines)
     if poe2_mode:
         s = stats_poe2()
-        bs = fmt(s["bs"][0]) if s["bs"] else "н/д"
-        bc = fmt(s["bc"][0]) if s["bc"] else "н/д"
-        _res = (
-            f"Зона: {s['cur'][:24]}\n"
-            f"──────────────────────────────\n"
-            f"Сехем:      {s['sek_r']} заб. / {s['sek_f']} эт. (ср. {fmt(s['as'])})\n"
-            f"Ультиматум: {s['ch_r']} заб. / {s['ch_f']} комн. (ср. {fmt(s['ac'])})\n"
-            f"Рекорды:    сехем {bs} | ульт. {bc}\n"
-            f"Карты/Босс: {s['maps']} / {s['pins']} (ср. {fmt(s['am'])})\n"
-            f"──────────────────────────────\n"
-            f"Темп:       {s['rph']:.1f} забегов/час\n"
-            f"В забегах:  {fmt(s['ta'])} ({s['sh']:.0f}%) | Хаб: {fmt(s['th'])}"
-        )
+        if ultimatum_mode:
+            bc = fmt(s["bc"][0]) if s["bc"] else "н/д"
+            _res = (
+                f"Зона: {s['cur'][:24]}\n"
+                f"──────────────────────────────\n"
+                f"Ультиматум: {s['ch_r']} заб. / {s['ch_f']} комн.\n"
+                f"Среднее:    {fmt(s['ac'])} | Рекорд: {bc}\n"
+                f"Карты/Босс: {s['maps']} / {s['pins']} (ср. {fmt(s['am'])})\n"
+                f"──────────────────────────────\n"
+                f"Темп:       {s['rph']:.1f} забегов/час\n"
+                f"В забегах:  {fmt(s['ta'])} ({s['sh']:.0f}%) | Хаб: {fmt(s['th'])}"
+            )
+        else:
+            bs = fmt(s["bs"][0]) if s["bs"] else "н/д"
+            _res = (
+                f"Зона: {s['cur'][:24]}\n"
+                f"──────────────────────────────\n"
+                f"Сехем:      {s['sek_r']} заб. / {s['sek_f']} эт.\n"
+                f"Среднее:    {fmt(s['as'])} | Рекорд: {bs}\n"
+                f"Карты/Босс: {s['maps']} / {s['pins']} (ср. {fmt(s['am'])})\n"
+                f"──────────────────────────────\n"
+                f"Темп:       {s['rph']:.1f} забегов/час\n"
+                f"В забегах:  {fmt(s['ta'])} ({s['sh']:.0f}%) | Хаб: {fmt(s['th'])}"
+            )
         if ckey: _render_cache[ckey] = _res
         return _res
     s = stats_poe1()
@@ -564,12 +576,17 @@ if __name__ == "__main__":
     d = {"x": 0, "y": 0}
     h = tk.Frame(r, bg="#1e2229", cursor="fleur"); h.pack(fill="x")
     def get_title():
-        base = f" EXILEPACE: BLIGHT v{VERSION}" if blight_mode else (f" EXILEPACE: POE 2 v{VERSION}" if poe2_mode else f" EXILEPACE: HEIST v{VERSION}")
+        if poe2_mode:
+            base = f" EXILEPACE: ULTIMATUM v{VERSION}" if ultimatum_mode else f" EXILEPACE: SEKHEMAS v{VERSION}"
+        else:
+            base = f" EXILEPACE: BLIGHT v{VERSION}" if blight_mode else f" EXILEPACE: HEIST v{VERSION}"
         tag = f" [{cur_league[3]}]" if cur_league else (" [СЕГОДНЯ]" if start_date == date.today() else (" [ВСЁ]" if start_date is None else f" [{start_date:%d.%m}]"))
         return base + tag
 
     def get_btn_label():
-        return "⇄ HEIST" if (blight_mode or poe2_mode) else "⇄ BLIGHT"
+        if poe2_mode:
+            return "⇄ SEKHEMAS" if ultimatum_mode else "⇄ ULTIMATUM"
+        return "⇄ HEIST" if blight_mode else "⇄ BLIGHT"
 
     t = tk.Label(h, text=get_title(), bg="#1e2229", fg="#dfcf99", font=("Sans", 9, "bold"))
     t.pack(side="left", padx=4)
@@ -579,8 +596,7 @@ if __name__ == "__main__":
     x.bind("<Button-1>", lambda e: r.destroy())
 
     sw = tk.Label(h, text=get_btn_label(), bg="#2b313c", fg="#a3be8c", font=("Sans", 8, "bold"), padx=5, pady=1, cursor="hand2")
-    if not poe2_mode:
-        sw.pack(side="right", padx=4, pady=2)
+    sw.pack(side="right", padx=4, pady=2)
 
     import threading as _bg_th
 
@@ -589,25 +605,27 @@ if __name__ == "__main__":
             try:
                 cur_txt = out_text()
                 r.after(0, lambda: lbl.config(text=cur_txt))
-                if force_prewarm and not poe2_mode:
-                    global blight_mode
-                    orig = blight_mode
-                    blight_mode = not orig
-                    out_text()
-                    blight_mode = orig
+                if force_prewarm:
+                    if poe2_mode:
+                        global ultimatum_mode
+                        orig = ultimatum_mode
+                        ultimatum_mode = not orig
+                        out_text()
+                        ultimatum_mode = orig
+                    else:
+                        global blight_mode
+                        orig = blight_mode
+                        blight_mode = not orig
+                        out_text()
+                        blight_mode = orig
             except Exception as e:
                 logger.error(f"Ошибка фонового рендера: {e}")
         _bg_th.Thread(target=_job, daemon=True).start()
 
     def switch_mode(event=None):
-        global blight_mode, poe2_mode, log_path, start_date, end_date, cur_league
+        global blight_mode, ultimatum_mode
         if poe2_mode:
-            poe2_mode = False
-            blight_mode = False
-            log_path = find_client_log(False)
-            if cur_league:
-                cur_league = LEAGUES_POE1[0]
-                start_date, end_date = cur_league[1], cur_league[2]
+            ultimatum_mode = not ultimatum_mode
         else:
             blight_mode = not blight_mode
         t.config(text=get_title())
@@ -615,7 +633,7 @@ if __name__ == "__main__":
         # Если в кэше уже есть готовый текст — ставим мгновенно без ожидания диска
         try:
             fs = os.stat(log_path)
-            ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, start_date, end_date)
+            ckey = (log_path, fs.st_mtime, fs.st_size, blight_mode, poe2_mode, ultimatum_mode, start_date, end_date)
             if ckey in _render_cache:
                 lbl.config(text=_render_cache[ckey])
                 return
@@ -709,18 +727,15 @@ if __name__ == "__main__":
 
             period_menu = pystray.Menu(lambda: build_period_items())
 
-            tray_items = [
+            sw_title = "Переключить режим (Сехем / Ультиматум)" if poe2_mode else "Переключить режим (Heist / Blight)"
+            menu = pystray.Menu(
                 pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
                 pystray.MenuItem("Период / Лига", period_menu),
-            ]
-            if not poe2_mode:
-                tray_items.append(pystray.MenuItem("Переключить режим (Heist / Blight)", lambda icon, item: r.after(0, switch_mode)))
-            tray_items.extend([
+                pystray.MenuItem(sw_title, lambda icon, item: r.after(0, switch_mode)),
                 pystray.MenuItem("Открыть лог отладки", open_log_file),
                 pystray.MenuItem("Проверить обновления", run_upd_from_tray),
                 pystray.MenuItem("Выход", quit_app)
-            ])
-            menu = pystray.Menu(*tray_items)
+            )
             tray = pystray.Icon("exile_pace", img, "ExilePace", menu)
             threading.Thread(target=tray.run, daemon=True).start()
             logger.info("Значок Разбойничьего жетона запущен в трее")
