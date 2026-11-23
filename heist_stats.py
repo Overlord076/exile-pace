@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.6.6"
+VERSION = "1.7.0"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -447,10 +447,35 @@ if __name__ == "__main__":
     r.configure(bg="#121417", highlightbackground="#3a3f4b", highlightthickness=1); r.geometry("+20+120")
     d = {"x": 0, "y": 0}
     h = tk.Frame(r, bg="#1e2229", cursor="fleur"); h.pack(fill="x")
-    title = f" EXILEPACE: BLIGHT v{VERSION}" if blight_mode else (f" EXILEPACE: POE 2 v{VERSION}" if poe2_mode else f" EXILEPACE: HEIST v{VERSION}")
-    t = tk.Label(h, text=title, bg="#1e2229", fg="#dfcf99", font=("Sans", 9, "bold")); t.pack(side="left", padx=4)
-    x = tk.Label(h, text="✕", bg="#1e2229", fg="#8b949e", font=("Sans", 9, "bold"), cursor="hand2"); x.pack(side="right", padx=6)
+    def get_title():
+        return f" EXILEPACE: BLIGHT v{VERSION}" if blight_mode else (f" EXILEPACE: POE 2 v{VERSION}" if poe2_mode else f" EXILEPACE: HEIST v{VERSION}")
+
+    def get_btn_label():
+        return "⇄ HEIST" if (blight_mode or poe2_mode) else "⇄ BLIGHT"
+
+    t = tk.Label(h, text=get_title(), bg="#1e2229", fg="#dfcf99", font=("Sans", 9, "bold"))
+    t.pack(side="left", padx=4)
+
+    x = tk.Label(h, text="✕", bg="#1e2229", fg="#8b949e", font=("Sans", 9, "bold"), cursor="hand2")
+    x.pack(side="right", padx=6)
     x.bind("<Button-1>", lambda e: r.destroy())
+
+    sw = tk.Label(h, text=get_btn_label(), bg="#2b313c", fg="#a3be8c", font=("Sans", 8, "bold"), padx=5, pady=1, cursor="hand2")
+    sw.pack(side="right", padx=4, pady=2)
+
+    def switch_mode(event=None):
+        global blight_mode, poe2_mode, log_path
+        if poe2_mode:
+            poe2_mode = False
+            blight_mode = False
+            log_path = find_client_log(False)
+        else:
+            blight_mode = not blight_mode
+        t.config(text=get_title())
+        sw.config(text=get_btn_label())
+        lbl.config(text=out_text())
+
+    sw.bind("<Button-1>", switch_mode)
     for w in (h, t):
         w.bind("<Button-1>", lambda e: d.update(x=e.x, y=e.y))
         w.bind("<B1-Motion>", lambda e: r.geometry(f"+{r.winfo_x()+e.x-d['x']}+{r.winfo_y()+e.y-d['y']}"))
@@ -509,6 +534,7 @@ if __name__ == "__main__":
 
             menu = pystray.Menu(
                 pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
+                pystray.MenuItem("Переключить режим (Heist / Blight)", lambda icon, item: r.after(0, switch_mode)),
                 pystray.MenuItem("Открыть лог отладки", open_log_file),
                 pystray.MenuItem("Проверить обновления", run_upd_from_tray),
                 pystray.MenuItem("Выход", quit_app)
@@ -522,7 +548,7 @@ if __name__ == "__main__":
         try:
             latest, _ = check_latest_release()
             if parse_ver(latest) > parse_ver(VERSION):
-                r.after(0, lambda: t.config(text=f"{title} [Новая v{latest}!]"))
+                r.after(0, lambda: t.config(text=f"{get_title()} [Новая v{latest}!]"))
         except Exception as e:
             logger.warning(f"Трей не инициализирован: {e}")
 
