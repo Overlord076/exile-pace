@@ -743,14 +743,16 @@ if __name__ == "__main__":
     lbl.pack()
     st = {"m": 0, "s": 0, "base_txt": ""}
     def apply_live_timer(raw_txt):
-        if _active_zone_start is not None:
+        if _active_zone_start is not None and "
+" in raw_txt:
             sec = max(0, int((datetime.now() - _active_zone_start).total_seconds()))
             if sec <= 1800:
                 mm, ss = divmod(sec, 60)
-                lines = raw_txt.split("\n", 1)
-                z_base = lines.split(" (")
-                lines = f"{z_base[:18]} ({mm:02d}:{ss:02d})"
-                return "\n".join(lines)
+                first_line, rest = raw_txt.split("
+", 1)
+                z_base, *_ = first_line.split(" (")
+                return f"{z_base[:18]} ({mm:02d}:{ss:02d})
+{rest}"
         return raw_txt
 
     # Оборачиваем вывод в lbl, чтобы сохранять базовый текст и тикать секундомер поверх него
