@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.7.0"
+VERSION = "1.7.1"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -408,6 +408,23 @@ def stats_poe1():
     }
 
 def out_text():
+    if blight_mode:
+        s = stats_blight()
+        bb = fmt(s["bb"]) if s["bb"] else "н/д"
+        br = fmt(s["br"]) if s["br"] else "н/д"
+        wr = f"{s['wr']:.0f}%" if (s["wins"] + s["fails"]) > 0 else "н/д"
+        lines = [
+            f"Зона: {s['cur'][:24]}",
+            "──────────────────────────────",
+            f"Заражённые:   {s['bl']} карт (ср. {fmt(s['ab'])})",
+            f"Осквернённые: {s['rav']} карт (ср. {fmt(s['ar'])})",
+            f"Кассия:       {s['enc']} встр. | Насос: {s['wins']}W / {s['fails']}L ({wr})",
+            f"Рекорды:      {bb} / {br} | Топ-масла: {s['oils']}",
+            "──────────────────────────────",
+            f"Темп карт:    {s['rph']:.1f} карт/час",
+            f"В Скверне:    {fmt(s['tr'])} ({s['sh']:.0f}%) | Убежище: {fmt(s['th'])}"
+        ]
+        return chr(10).join(lines)
     if poe2_mode:
         s = stats_poe2()
         bm = fmt(s["bm"][0]) if s["bm"] else "н/д"
