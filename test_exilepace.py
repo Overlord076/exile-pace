@@ -22,7 +22,10 @@ P1_LOG = """2026/11/23 10:00:00 1000 [INFO Client 1] : You have entered The Rogu
 P2_LOG = """2026/11/23 11:00:00 2000 [INFO Client 2] : You have entered The Ziggurat Encampment.
 2026/11/23 11:01:00 2001 [INFO Client 2] : You have entered Trial of the Sekhemas.
 2026/11/23 11:04:00 2002 [INFO Client 2] : You have entered Trial of the Sekhemas.
-2026/11/23 11:08:00 2003 [INFO Client 2] : You have entered The Burning Monolith.
+2026/11/23 11:07:00 2003 [INFO Client 2] : You have entered The Temple of Chaos.
+2026/11/23 11:08:00 2004 [INFO Client 2] : You have entered The Trial of Chaos.
+2026/11/23 11:10:00 2005 [INFO Client 2] : You have entered The Trial of Chaos.
+2026/11/23 11:12:00 2006 [INFO Client 2] : You have entered The Burning Monolith.
 2026/11/23 11:12:00 2004 [INFO Client 2] : You have entered Hideout.
 """
 class TestExilePace(unittest.TestCase):
@@ -65,7 +68,7 @@ class TestExilePace(unittest.TestCase):
     def test_poe2(self):
         self.mod.log_path, self.mod.start_date = str(self.p2), None
         r = self.mod.stats_poe2()
-        self.assertEqual((r["sek_r"], r["sek_f"], r["pins"]), (1, 2, 1))
+        self.assertEqual((r["sek_r"], r["sek_f"], r["ch_r"], r["ch_f"], r["pins"]), (1, 2, 1, 2, 1))
 
     def test_empty(self):
         self.mod.log_path, self.mod.start_date = str(self.emp), None

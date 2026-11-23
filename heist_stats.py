@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.13.1"
+VERSION = "1.13.2"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -340,7 +340,7 @@ def stats_poe2():
             if (not start_date or ts.date() >= start_date) and (not end_date or ts.date() <= end_date):
                 runs.append((ts, z))
 
-    sek_hubs = {"trial of the sekhemas", "испытание сехем", "испытания сехем"}
+    sek_hubs = set()
     sek_floors_kw = ("test of strength", "test of will", "test of cunning", "test of time", "испытание силы", "испытание воли", "испытание хитрости", "испытание времени", "sekhema", "сехем")
     chaos_hubs = {"the temple of chaos", "temple of chaos", "храм хаоса"}
     chaos_kw = ("trial of chaos", "испытание хаоса", "испытания хаоса", "ultimatum", "ультиматум")
