@@ -1,5 +1,8 @@
 # Author: MuonSuzuki | Created with AI assistance
-VERSION = "1.6.3"
+import sys
+VERSION = "1.6.5"
+blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
+blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
 
 
