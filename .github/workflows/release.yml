@@ -37,6 +37,9 @@ jobs:
         if: matrix.install_tk
         run: sudo apt-get update && sudo apt-get install -y python3-tk gir1.2-ayatanaappindicator3-0.1 python3-gi
 
+      - name: Run Unit Tests
+        run: python test_exilepace.py
+
       - name: Install PyInstaller
         run: pip install pyinstaller pystray pillow
 
