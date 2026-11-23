@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.16.3"
+VERSION = "1.16.5"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -264,7 +264,7 @@ heist_zones = {
 }
 heist_area_ids = {
     "HeistBunker": "Бункер", "HeistSewers": "Подполье", "HeistMansion": "Особняк",
-    "HeistVault": "Хранилище", "HeistRobotTunnels": "Тоннели", "HeistDungeon": "Лаборатория",
+    "HeistVault": "Хранилище", "HeistReliquary": "Хранилище", "HeistRobotTunnels": "Тоннели", "HeistDungeon": "Лаборатория",
     "HeistLibrary": "Библиотека", "HeistSmugglersDen": "Логово", "HeistCourts": "Архив",
     "HeistBoss_AdmiralDarnaw": "Уник: Смерть Дарно", "HeistBoss_TheTwins": "Уник: Близнецы",
     "HeistBoss_Vox": "Уник: Разрушение Нерушимого", "HeistBoss_Nashta": "Уник: Сердце славы",
@@ -578,7 +578,7 @@ def stats_poe1():
                     if j + 1 < len(runs):
                         ats, azone, aaid, aseed, abrk = runs[j+1]
                         anz = map_heist_area(aaid, azone); hp = (ats - nts).total_seconds()
-                        if not abrk and anz and (ats - last_t).total_seconds() < 2700 and (hp <= 22 or anz == nz):
+                        if not abrk and anz and (ats - last_t).total_seconds() < 2700 and (anz == nz):
                             if 1 <= hp <= 900: t_harb += hp; h_rec.append(hp)
                             wings += 1; z_cnt[anz] += 1
                             if j + 2 < len(runs):
