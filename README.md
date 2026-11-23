@@ -1,4 +1,4 @@
-# ExilePace — PoE 1 PoE Heist & Path of Exile 2 Tracker PoE 2 Activity Tracker
+# ExilePace — PoE 1 (Heist # ExilePace — PoE 1 PoE Heist & Path of Exile 2 Tracker PoE 2 Activity Tracker Blight) # ExilePace — PoE 1 PoE Heist & Path of Exile 2 Tracker PoE 2 Activity Tracker Path of Exile 2 Activity Tracker
 
 Легкий кроссплатформенный трекер забегов для **Path of Exile 1** (Кража / Heist) и **Path of Exile 2** (Испытания Сехем, Хаоса, Пинакл-боссы, Карты). Работает путем чтения локального лог-файла игры `Client.txt` без вмешательства в процесс игры.
 
@@ -27,6 +27,10 @@
 * `30.10.2026` или `2026-10-30` — статистика начиная с указанной даты
 * `--poe2` (или `-2`) — переключение на анализ логов Path of Exile 2
 * `--overlay` (или `-o`) — запуск в виде полупрозрачного окна поверх игры
+* `--blight` (или `-b`) — режим трекинга Скверны (карты, Кассия, масла)
+* `--bg` — запуск оверлея в фоновом режиме (не зависит от окна терминала)
+* `--debug` (или `-d`) — запись подробного лога отладки в `tracker.log`
+* `--update` (или `-u`) — проверка и установка обновлений с GitHub
 * `--live` (или `-l`) — режим автообновления прямо в терминале
 
 ### Ручная настройка пути к `Client.txt`
