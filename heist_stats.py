@@ -20,6 +20,40 @@ APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 DATA_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = DATA_DIR / "config.json"
 
+import logging, platform, traceback
+from logging.handlers import RotatingFileHandler
+
+debug_mode = any(a.strip().lower() in ("--debug", "-d", "debug") for a in sys.argv[1:])
+LOG_FILE = DATA_DIR / "tracker.log"
+
+logger = logging.getLogger("PoETracker")
+logger.setLevel(logging.DEBUG if debug_mode else logging.INFO)
+_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+
+try:
+    _fh = RotatingFileHandler(LOG_FILE, maxBytes=512*1024, backupCount=1, encoding="utf-8")
+    _fh.setFormatter(_fmt)
+    logger.addHandler(_fh)
+except Exception:
+    pass
+
+if debug_mode:
+    _sh = logging.StreamHandler(sys.stdout)
+    _sh.setFormatter(_fmt)
+    logger.addHandler(_sh)
+
+def _global_excepthook(exc_type, exc_value, exc_tb):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_tb)
+        return
+    tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+    logger.critical(f"Необработанное исключение (v{VERSION} | {platform.system()} {platform.release()}):\n{tb_str}")
+    sys.__excepthook__(exc_type, exc_value, exc_tb)
+
+sys.excepthook = _global_excepthook
+logger.debug(f"Запуск трекера v{VERSION} | Аргументы: {sys.argv[1:]} | ОС: {platform.system()} {platform.release()}")
+
+
 import urllib.request
 
 GITHUB_REPO = "MuonSuzuki/poe-heist-tracker"
@@ -143,6 +177,7 @@ def find_client_log(is_poe2):
     sys.exit(f"Файл Client.txt для {folder} не найден. Укажите \"{key}\" в {CONFIG_FILE}")
 
 log_path = find_client_log(poe2_mode)
+logger.info(f"Используется лог игры: {log_path}")
 rx = re.compile(r"^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*?(?:You have entered (.+?)\.|Вы вошли в область (.+?)\.)")
 def fmt(s):
     if s <= 0: return "н/д"
@@ -344,10 +379,16 @@ if overlay_mode:
     lbl.pack()
     st = {"m": 0, "s": 0}
     def upd():
-        fs = os.stat(log_path)
-        if fs.st_mtime != st["m"] or fs.st_size != st["s"]:
-            st["m"], st["s"] = fs.st_mtime, fs.st_size
-            lbl.config(text=out_text())
+        try:
+            fs = os.stat(log_path)
+            if fs.st_mtime != st["m"] or fs.st_size != st["s"]:
+                st["m"], st["s"] = fs.st_mtime, fs.st_size
+                t0 = time.perf_counter()
+                lbl.config(text=out_text())
+                logger.debug(f"Оверлей обновлен за {(time.perf_counter()-t0)*1000:.1f} мс")
+        except Exception as e:
+            logger.error(f"Ошибка обновления оверлея: {e}", exc_info=True)
+            lbl.config(text=f"Ошибка чтения лога (см. tracker.log):\n{e}")
         r.after(1500, upd)
     def setup_tray():
         try:
@@ -377,8 +418,19 @@ if overlay_mode:
                     r.after(0, r.destroy)
                     os.execv(sys.executable, [sys.executable] + sys.argv)
 
+            def open_log_file(icon, item):
+                try:
+                    if os.name == "nt":
+                        os.startfile(str(LOG_FILE))
+                    else:
+                        import subprocess
+                        subprocess.Popen(["xdg-open", str(LOG_FILE)])
+                except Exception as e:
+                    logger.error(f"Не удалось открыть лог: {e}")
+
             menu = pystray.Menu(
                 pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
+                pystray.MenuItem("Открыть лог отладки", open_log_file),
                 pystray.MenuItem("Проверить обновления", run_upd_from_tray),
                 pystray.MenuItem("Выход", quit_app)
             )
