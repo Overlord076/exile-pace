@@ -14,12 +14,12 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            asset_name: poe-tracker-linux
-            bin_path: dist/poe-tracker
+            asset_name: exile-pace-linux
+            bin_path: dist/exile-pace
             install_tk: true
           - os: windows-latest
-            asset_name: PoE-Tracker-Windows.exe
-            bin_path: dist/poe-tracker.exe
+            asset_name: ExilePace-Windows.exe
+            bin_path: dist/exile-pace.exe
             install_tk: false
 
     runs-on: ${{ matrix.os }}
@@ -41,7 +41,7 @@ jobs:
         run: pip install pyinstaller pystray pillow
 
       - name: Build binary
-        run: pyinstaller --onefile --noconsole --name "poe-tracker" heist_stats.py
+        run: pyinstaller --onefile --noconsole --name "exile-pace" heist_stats.py
 
       - name: Rename asset
         shell: bash

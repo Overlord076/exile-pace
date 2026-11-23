@@ -1,4 +1,4 @@
-# PoE Heist & Path of Exile 2 Tracker
+# ExilePace — PoE 1 PoE Heist & Path of Exile 2 Tracker PoE 2 Activity Tracker
 
 Легкий кроссплатформенный трекер забегов для **Path of Exile 1** (Кража / Heist) и **Path of Exile 2** (Испытания Сехем, Хаоса, Пинакл-боссы, Карты). Работает путем чтения локального лог-файла игры `Client.txt` без вмешательства в процесс игры.
 
@@ -77,6 +77,6 @@ On first launch, the tracker automatically detects `Client.txt` and saves it to 
 
 ### Авторство и дисклеймер / Author & Disclaimer
 
-* **Автор / Author:** MuonSuzuki
+* **Автор / Author:** Overlord076
 * **Дисклеймер (RU):** Данный проект и его исходный код созданы с использованием инструментов искусственного интеллекта (ИИ). Утилита распространяется «как есть» (as-is) и взаимодействует исключительно с локальным текстовым файлом журнала `Client.txt`, не нарушая правила использования Path of Exile.
 * **Disclaimer (EN):** This project and its source code were created with the assistance of Artificial Intelligence (AI). Provided "as-is"; the tool only reads the local `Client.txt` log file and does not interact with or modify the game client.

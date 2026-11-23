@@ -7,3 +7,4 @@ dist/
 
 # Локальные настройки пользователя с путями к Client.txt
 config.json
+tracker.log*

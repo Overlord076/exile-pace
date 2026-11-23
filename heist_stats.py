@@ -1,6 +1,6 @@
-# Author: MuonSuzuki | Created with AI assistance
+# Author: Overlord076 | Created with AI assistance
 VERSION = "1.0.0"
-AUTHOR = "MuonSuzuki"
+AUTHOR = "Overlord076"
 
 
 import json, os, re, sys, time
@@ -56,7 +56,7 @@ logger.debug(f"Запуск трекера v{VERSION} | Аргументы: {sys
 
 import urllib.request
 
-GITHUB_REPO = "MuonSuzuki/poe-heist-tracker"
+GITHUB_REPO = "Overlord076/exile-pace"
 
 def parse_ver(v):
     try:
@@ -66,7 +66,7 @@ def parse_ver(v):
 
 def check_latest_release():
     url = f"https://github.com{GITHUB_REPO}/releases/latest"
-    req = urllib.request.Request(url, headers={"User-Agent": "PoE-Tracker-Updater"})
+    req = urllib.request.Request(url, headers={"User-Agent": "ExilePace-Updater"})
     with urllib.request.urlopen(req, timeout=6) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     tag = data.get("tag_name", "").lstrip("vV")
@@ -89,7 +89,7 @@ def perform_self_update():
     is_frozen = getattr(sys, "frozen", False)
     try:
         if is_frozen:
-            asset_name = "PoE-Tracker-Windows.exe" if os.name == "nt" else "poe-tracker-linux"
+            asset_name = "ExilePace-Windows.exe" if os.name == "nt" else "exile-pace-linux"
             dl_url = assets.get(asset_name)
             if not dl_url:
                 print(f"Файл {asset_name} не найден в релизе v{latest}.")
@@ -368,7 +368,7 @@ if overlay_mode:
     r.configure(bg="#121417", highlightbackground="#3a3f4b", highlightthickness=1); r.geometry("+20+120")
     d = {"x": 0, "y": 0}
     h = tk.Frame(r, bg="#1e2229", cursor="fleur"); h.pack(fill="x")
-    title = f" POE 2 TRACKER v{VERSION}" if poe2_mode else f" HEIST TRACKER v{VERSION}"
+    title = f" EXILEPACE: POE 2 v{VERSION}" if poe2_mode else f" EXILEPACE: HEIST v{VERSION}"
     t = tk.Label(h, text=title, bg="#1e2229", fg="#dfcf99", font=("Sans", 9, "bold")); t.pack(side="left", padx=4)
     x = tk.Label(h, text="✕", bg="#1e2229", fg="#8b949e", font=("Sans", 9, "bold"), cursor="hand2"); x.pack(side="right", padx=6)
     x.bind("<Button-1>", lambda e: r.destroy())

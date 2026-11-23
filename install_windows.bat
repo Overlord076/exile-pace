@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Установка PoE Heist & PoE 2 Tracker
+title Установка ExilePace
 
 echo ==================================================
 echo   Установка PoE Heist ^& PoE 2 Tracker для Windows
@@ -26,8 +26,8 @@ if %errorlevel% neq 0 (
     echo [1/3] Python найден.
 )
 
-:: 2. Копирование файлов в %LOCALAPPDATA%\PoE-Heist-Tracker
-set "INSTALL_DIR=%LOCALAPPDATA%\PoE-Heist-Tracker"
+:: 2. Копирование файлов в %LOCALAPPDATA%\ExilePace
+set "INSTALL_DIR=%LOCALAPPDATA%\ExilePace"
 echo [2/3] Копируем файлы в "%INSTALL_DIR%"...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 copy /Y "%~dp0heist_stats.py" "%INSTALL_DIR%\heist_stats.py" >nul
