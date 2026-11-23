@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.13.0"
+VERSION = "1.13.1"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -177,7 +177,7 @@ end_date = cur_league[2] if cur_league else None
 
 for a in sys.argv[1:]:
     a = a.strip().lower()
-    if a in ("--poe2", "-2", "poe2", "--blight", "-b", "blight", "--ultimatum", "--chaos", "ultimatum", "chaos", "--live", "-l", "live", "--overlay", "-o", "overlay", "--fg", "--foreground", "fg"): continue
+    if a in ("--poe2", "-2", "poe2", "--blight", "-b", "blight", "--ultimatum", "--chaos", "ultimatum", "chaos", "--live", "-l", "live", "--overlay", "-o", "overlay", "--fg", "--foreground", "fg", "--debug", "-d", "debug", "--bg", "--daemon", "bg"): continue
     if a in ("league", "--league", "лига"): pass
     elif a == "today": start_date = date.today()
     else:
@@ -600,7 +600,7 @@ if __name__ == "__main__":
     def load_overlay_pos():
         pos = _ic.get("overlay_pos_poe2" if poe2_mode else "overlay_pos_poe1")
         if isinstance(pos, list) and len(pos) == 2:
-            px, py = int(pos), int(pos)
+            px, py = int(pos[0]), int(pos[1])
             if 0 <= px <= max(0, r.winfo_screenwidth()-80) and 0 <= py <= max(0, r.winfo_screenheight()-40):
                 return f"+{px}+{py}"
         return "+20+120"
