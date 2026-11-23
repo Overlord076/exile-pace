@@ -77,6 +77,6 @@ On first launch, the tracker automatically detects `Client.txt` and saves it to 
 
 ### Авторство и дисклеймер / Author & Disclaimer
 
-* **Автор / Author:** Overlord076
+* **Автор / Author:** MuonSuzuki
 * **Дисклеймер (RU):** Данный проект и его исходный код созданы с использованием инструментов искусственного интеллекта (ИИ). Утилита распространяется «как есть» (as-is) и взаимодействует исключительно с локальным текстовым файлом журнала `Client.txt`, не нарушая правила использования Path of Exile.
 * **Disclaimer (EN):** This project and its source code were created with the assistance of Artificial Intelligence (AI). Provided "as-is"; the tool only reads the local `Client.txt` log file and does not interact with or modify the game client.
