@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.16.5"
+VERSION = "1.17.0"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -111,7 +111,7 @@ def perform_self_update():
                 os.replace(tmp_exe, cur_exe)
             print(f"Бинарник успешно обновлен до v{latest}! Перезапустите программу.")
         else:
-            raw_url = f"https://githubusercontent.com{GITHUB_REPO}/main/heist_stats.py"
+            raw_url = f"https://raw.githubusercontent.com{GITHUB_REPO}/main/heist_stats.py"
             cur_py = Path(__file__).resolve()
             tmp_py = cur_py.with_suffix(".py.new")
             urllib.request.urlretrieve(raw_url, tmp_py)
@@ -974,6 +974,50 @@ if __name__ == "__main__":
         except Exception as e:
             logger.warning(f"Ошибка трея: {e}", exc_info=True)
 
+    upd_bar = tk.Frame(r, bg="#1e2229")
+    upd_lbl = tk.Label(upd_bar, text="", bg="#1e2229", fg="#a3be8c", font=("Sans", 8, "bold"), cursor="hand2")
+    upd_lbl.pack(side="left", padx=(6, 4), pady=2)
+    upd_cls = tk.Label(upd_bar, text="✕", bg="#1e2229", fg="#8b949e", font=("Sans", 8, "bold"), cursor="hand2")
+    upd_cls.pack(side="right", padx=(2, 6), pady=2)
+    upd_cls.bind("<ButtonRelease-1>", lambda e: upd_bar.pack_forget())
+
+    def do_inapp_update(event=None):
+        upd_lbl.config(text="⏳ Скачивание обновления...", fg="#ebcb8b", cursor="watch")
+        def _dl():
+            ok = perform_self_update()
+            if ok:
+                def _restart():
+                    upd_lbl.config(text="✔ Обновлено! Перезапуск...", fg="#a3be8c")
+                    try:
+                        if _lock_fp: _lock_fp.close()
+                        if os.path.exists(".lock_poe1"): os.remove(".lock_poe1")
+                        if os.path.exists(".lock_poe2"): os.remove(".lock_poe2")
+                    except Exception: pass
+                    cmd = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, str(Path(__file__).resolve())]
+                    subprocess.Popen(cmd + sys.argv[1:])
+                    r.after(400, r.destroy)
+                r.after(0, _restart)
+            else:
+                r.after(0, lambda: upd_lbl.config(text="⚠ Ошибка обновления (повторить)", fg="#bf616a", cursor="hand2"))
+        threading.Thread(target=_dl, daemon=True).start()
+
+    upd_lbl.bind("<ButtonRelease-1>", do_inapp_update)
+
+    def bg_update_check():
+        def _chk():
+            try:
+                latest, _ = check_latest_release()
+                if latest and parse_ver(latest) > parse_ver(VERSION):
+                    def _show():
+                        upd_lbl.config(text=f"⬆ Доступна v{latest} — нажми для обновления", fg="#a3be8c")
+                        upd_bar.pack(fill="x", side="bottom")
+                    r.after(0, _show)
+            except Exception as e:
+                logger.debug(f"Фоновая проверка обновлений: {e}")
+        threading.Thread(target=_chk, daemon=True).start()
+        r.after(21600000, bg_update_check)
+
+    r.after(3000, bg_update_check)
     setup_tray()
     upd(); r.mainloop()
   elif live_mode:
