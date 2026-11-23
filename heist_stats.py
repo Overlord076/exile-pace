@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.12.1"
+VERSION = "1.12.2"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -579,7 +579,33 @@ if __name__ == "__main__":
     r.overrideredirect(True); r.attributes("-topmost", True)
     try: r.attributes("-alpha", 0.85)
     except Exception: pass
-    r.configure(bg="#121417", highlightbackground="#3a3f4b", highlightthickness=1); r.geometry("+20+120")
+    r.configure(bg="#121417", highlightbackground="#3a3f4b", highlightthickness=1)
+    def load_overlay_pos():
+        try:
+            if CONFIG_FILE.exists():
+                cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+                pos = cfg.get("overlay_pos_poe2" if poe2_mode else "overlay_pos_poe1")
+                if isinstance(pos, list) and len(pos) == 2:
+                    px, py = int(pos[0]), int(pos[1])
+                    sw_w, sw_h = r.winfo_screenwidth(), r.winfo_screenheight()
+                    if 0 <= px <= max(0, sw_w - 80) and 0 <= py <= max(0, sw_h - 40):
+                        return f"+{px}+{py}"
+        except Exception:
+            pass
+        return "+20+120"
+
+    def save_overlay_pos(event=None):
+        try:
+            cfg = {}
+            if CONFIG_FILE.exists():
+                cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            key = "overlay_pos_poe2" if poe2_mode else "overlay_pos_poe1"
+            cfg[key] = [r.winfo_x(), r.winfo_y()]
+            CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as e:
+            logger.debug(f"Не удалось сохранить позицию окна: {e}")
+
+    r.geometry(load_overlay_pos())
     d = {"x": 0, "y": 0}
     h = tk.Frame(r, bg="#1e2229", cursor="fleur"); h.pack(fill="x")
     def get_title():
@@ -652,6 +678,7 @@ if __name__ == "__main__":
     for w in (h, t):
         w.bind("<Button-1>", lambda e: d.update(x=e.x, y=e.y))
         w.bind("<B1-Motion>", lambda e: r.geometry(f"+{r.winfo_x()+e.x-d['x']}+{r.winfo_y()+e.y-d['y']}"))
+        w.bind("<ButtonRelease-1>", save_overlay_pos)
     lbl = tk.Label(r, text="...", bg="#121417", fg="#e6e6e6", justify="left", anchor="w", font=("Monospace", 9), padx=8, pady=6)
     lbl.pack()
     st = {"m": 0, "s": 0}
@@ -737,6 +764,7 @@ if __name__ == "__main__":
             sw_title = "Переключить режим (Сехем / Ультиматум)" if poe2_mode else "Переключить режим (Heist / Blight)"
             menu = pystray.Menu(
                 pystray.MenuItem("Показать / Скрыть оверлей", toggle_overlay, default=True),
+                pystray.MenuItem("Сбросить позицию окна", lambda icon, item: r.after(0, lambda: (r.geometry("+20+120"), save_overlay_pos()))),
                 pystray.MenuItem("Период / Лига", period_menu),
                 pystray.MenuItem(sw_title, lambda icon, item: r.after(0, switch_mode)),
                 pystray.MenuItem("Открыть лог отладки", open_log_file),
