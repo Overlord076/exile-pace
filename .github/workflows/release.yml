@@ -1,0 +1,54 @@
+name: Build & Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset_name: poe-tracker-linux
+            bin_path: dist/poe-tracker
+            install_tk: true
+          - os: windows-latest
+            asset_name: PoE-Tracker-Windows.exe
+            bin_path: dist/poe-tracker.exe
+            install_tk: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install tkinter on Linux
+        if: matrix.install_tk
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build binary
+        run: pyinstaller --onefile --noconsole --name "poe-tracker" heist_stats.py
+
+      - name: Rename asset
+        shell: bash
+        run: mv "${{ matrix.bin_path }}" "${{ matrix.asset_name }}"
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset_name }}
+          generate_release_notes: true
