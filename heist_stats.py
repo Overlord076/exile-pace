@@ -1,6 +1,6 @@
 # Author: MuonSuzuki | Created with AI assistance
 import sys
-VERSION = "1.17.0"
+VERSION = "1.17.1"
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 blight_mode = any(a.strip().lower() in ("--blight", "-b", "blight") for a in sys.argv[1:])
 AUTHOR = "MuonSuzuki"
@@ -578,7 +578,7 @@ def stats_poe1():
                     if j + 1 < len(runs):
                         ats, azone, aaid, aseed, abrk = runs[j+1]
                         anz = map_heist_area(aaid, azone); hp = (ats - nts).total_seconds()
-                        if not abrk and anz and (ats - last_t).total_seconds() < 2700 and (anz == nz):
+                        if not abrk and anz and (ats - last_t).total_seconds() < 2700 and hp <= 32:
                             if 1 <= hp <= 900: t_harb += hp; h_rec.append(hp)
                             wings += 1; z_cnt[anz] += 1
                             if j + 2 < len(runs):
